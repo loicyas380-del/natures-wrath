@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survival: Nature's Wrath</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- HUD -->
+        <div id="hud">
+            <div id="stats">
+                <div class="stat-bar" id="health-bar">
+                    <span class="stat-icon">❤️</span>
+                    <div class="bar-bg"><div class="bar-fill health"></div></div>
+                    <span class="stat-value" id="health-val">100</span>
+                </div>
+                <div class="stat-bar" id="hunger-bar">
+                    <span class="stat-icon">🍖</span>
+                    <div class="bar-bg"><div class="bar-fill hunger"></div></div>
+                    <span class="stat-value" id="hunger-val">100</span>
+                </div>
+                <div class="stat-bar" id="thirst-bar">
+                    <span class="stat-icon">💧</span>
+                    <div class="bar-bg"><div class="bar-fill thirst"></div></div>
+                    <span class="stat-value" id="thirst-val">100</span>
+                </div>
+                <div class="stat-bar" id="stamina-bar">
+                    <span class="stat-icon">⚡</span>
+                    <div class="bar-bg"><div class="bar-fill stamina"></div></div>
+                    <span class="stat-value" id="stamina-val">100</span>
+                </div>
+                <div class="stat-bar" id="temp-bar">
+                    <span class="stat-icon">🌡️</span>
+                    <div class="bar-bg"><div class="bar-fill temp"></div></div>
+                    <span class="stat-value" id="temp-val">37°</span>
+                </div>
+            </div>
+            
+            <div id="time-display">
+                <span id="day-count">Jour 1</span>
+                <span id="time-of-day">☀️ 12:00</span>
+                <span id="weather-display">☀️ Clair</span>
+            </div>
+        </div>
+        
+        <!-- Inventory -->
+        <div id="inventory-panel" class="panel hidden">
+            <div class="panel-header">
+                <h3>🎒 Inventaire</h3>
+                <button class="close-btn" onclick="toggleInventory()">✕</button>
+            </div>
+            <div id="inventory-grid"></div>
+        </div>
+        
+        <!-- Crafting -->
+        <div id="craft-panel" class="panel hidden">
+            <div class="panel-header">
+                <h3>🔨 Craft</h3>
+                <button class="close-btn" onclick="toggleCraft()">✕</button>
+            </div>
+            <div id="craft-list"></div>
+        </div>
+        
+        <!-- Building -->
+        <div id="build-panel" class="panel hidden">
+            <div class="panel-header">
+                <h3>🏠 Construction</h3>
+                <button class="close-btn" onclick="toggleBuild()">✕</button>
+            </div>
+            <div id="build-list"></div>
+        </div>
+        
+        <!-- Minimap -->
+        <canvas id="minimap" width="150" height="150"></canvas>
+        
+        <!-- Controls help -->
+        <div id="controls-help">
+            <span>ZQSD/Flèches: Bouger</span>
+            <span>E: Interagir</span>
+            <span>I: Inventaire</span>
+            <span>C: Craft</span>
+            <span>B: Construire</span>
+            <span>Shift: Sprint</span>
+            <span>1-5: Outils rapides</span>
+        </div>
+        
+        <!-- Notifications -->
+        <div id="notifications"></div>
+        
+        <!-- Death screen -->
+        <div id="death-screen" class="hidden">
+            <h1>☠️ Vous êtes mort</h1>
+            <p id="death-reason"></p>
+            <p id="death-stats"></p>
+            <button onclick="restartGame()">Recommencer</button>
+        </div>
+        
+        <!-- Menu -->
+        <div id="main-menu">
+            <h1>🌿 Survival: Nature's Wrath</h1>
+            <p>La forêt est vivante. La forêt est dangereuse.</p>
+            <button onclick="startGame()">Jouer</button>
+            <div class="controls-info">
+                <h3>Contrôles</h3>
+                <p>ZQSD ou Flèches: Se déplacer</p>
+                <p>E: Interagir / Récolter</p>
+                <p>I: Inventaire</p>
+                <p>C: Menu Craft</p>
+                <p>B: Menu Construction</p>
+                <p>Shift: Sprint</p>
+                <p>1-5: Sélectionner outil rapide</p>
+                <p>Clic: Attaquer / Utiliser</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
