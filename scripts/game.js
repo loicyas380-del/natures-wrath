@@ -561,7 +561,6 @@ function buildFurniture() {
     addInteract(2, 0.5, -4, 2.5, { type: 'container', label: 'Ouvrir le coffre [E]' });
 
     // ---- CHAMBRE 1 ETAGE (X:-7 a 0, Z:0 a 5, Y:3) ----
-    const FY = 3;
 
     // Lit
     box(-3.5, FY + 0.3, 3.5, 2, 0.6, 1.2, mat(0x5a3020), true);
@@ -608,7 +607,6 @@ function buildFurniture() {
     box(-1, FY + 1.2, -2.5, 0.4, 0.08, 1.5, M.wood, true);
 
     // ---- SOUS-SOL ----
-    const BY = -3;
 
     // Generateur
     box(4, BY + 0.7, 0, 1.5, 1.4, 1.2, M.metal, true);
