@@ -155,7 +155,7 @@ const SFX = {
 function engineInit() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0c0a12);
-    scene.fog = new THREE.FogExp2(0x0a0810, 0.018);
+    scene.fog = new THREE.FogExp2(0x0c0a12, 0.012);
 
     camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 120);
 
@@ -164,8 +164,8 @@ function engineInit() {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 2.0;
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.toneMappingExposure = 2.5;
 
     clock = new THREE.Clock();
 
@@ -426,10 +426,10 @@ function buildHouse() {
     // ==================================================
 
     // Ambient
-    scene.add(new THREE.AmbientLight(0x2a2530, 1.0));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
     // Hemisphere light for global fill
-    scene.add(new THREE.HemisphereLight(0x3a3040, 0x1a1510, 0.6));
+    scene.add(new THREE.HemisphereLight(0xffeedd, 0x443322, 0.6));
 
     // Lumieres par piece - REZ-DE-CHausSEE (intensite haute, portee grande)
     addLight(-3.5, 2.5, 2.5, 0xffcc88, 2.5, 14);   // Salon
