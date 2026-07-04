@@ -682,6 +682,8 @@ function toggleDoor(id) {
 // ============================================
 function spawnItems() {
     const defs = Object.entries(CFG.ITEM_DEFS);
+    const FY = 3, BY = -3;
+
     const spots = [
         // Ground floor
         [-3.5, 0.6, 2.5],   // Table basse salon
@@ -699,7 +701,6 @@ function spawnItems() {
         [4, BY + 1.0, 0],      // Pres generateur
         [-4, BY + 1.0, 2],     // Caisses
     ];
-    const FY = 3, BY = -3;
 
     // Shuffle spots
     for (let i = spots.length - 1; i > 0; i--) {
