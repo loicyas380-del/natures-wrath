@@ -63,6 +63,7 @@ let generatorFixed = false;
 let alarmCut = false;
 let playerDead = false;
 let hasWon = false;
+let lastEscapeAttempt = 0;
 let settings = { vol: 0.7, music: 0.5, sens: 8, quality: 'medium' };
 
 // ============================================
@@ -879,7 +880,7 @@ let footstepCD = 0;
 let selectedSlot = 0;
 
 function initPlayer() {
-    playerPos.set(0, CFG.CAM_H, 0);
+    playerPos.set(-2, CFG.CAM_H, 2);
     playerVel.set(0, 0, 0);
     playerRotX = 0; playerRotY = 0;
     playerStamina = 100;
@@ -1200,11 +1201,14 @@ function initControls() {
 
     addEventListener('mousedown', e => {
         if (gameRunning && !gamePaused && ptrLocked && e.button === 0) onInteract();
+        if (gameRunning && !gamePaused && !ptrLocked) {
+            document.getElementById('gameCanvas').requestPointerLock();
+        }
     });
 
     addEventListener('pointerlockchange', () => {
         ptrLocked = !!document.pointerLockElement;
-        if (!ptrLocked && gameRunning && !gamePaused) {
+        if (!ptrLocked && gameRunning && !gamePaused && !playerDead && !hasWon) {
             showClickToPlay();
         }
     });
@@ -1212,11 +1216,13 @@ function initControls() {
 
 function showClickToPlay() {
     const overlay = document.getElementById('click-to-play');
+    if (!overlay) return;
     overlay.classList.remove('hidden');
-    overlay.onclick = () => {
-        document.getElementById('gameCanvas').requestPointerLock();
-        overlay.classList.add('hidden');
-    };
+}
+
+function hideClickToPlay() {
+    const overlay = document.getElementById('click-to-play');
+    if (overlay) overlay.classList.add('hidden');
 }
 
 function onKey(e) {
@@ -1539,6 +1545,7 @@ function resetState() {
     itemsFound = 0; totalItems = 0;
     generatorFixed = false; alarmCut = false;
     playerDead = false; hasWon = false; gamePaused = false;
+    lastEscapeAttempt = 0;
     if (enemy.mesh) { scene.remove(enemy.mesh); enemy.mesh = null; }
 }
 
