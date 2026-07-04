@@ -18,7 +18,7 @@ const CFG = {
     STAMINA_REGEN: 10,
     SENSITIVITY: 0.002,
     WALL_H: 3,
-    WALL_T: 0.2,
+    WALL_T: 0.3,
     FLOOR_THICK: 0.15,
 
     ENEMY_SPEED_PATROL: 1.6,
@@ -154,8 +154,8 @@ const SFX = {
 // ============================================
 function engineInit() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x08050a);
-    scene.fog = new THREE.FogExp2(0x08050a, 0.045);
+    scene.background = new THREE.Color(0x0c0a12);
+    scene.fog = new THREE.FogExp2(0x0a0810, 0.018);
 
     camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 120);
 
@@ -165,7 +165,7 @@ function engineInit() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.8;
+    renderer.toneMappingExposure = 2.0;
 
     clock = new THREE.Clock();
 
@@ -246,69 +246,116 @@ function buildHouse() {
     const H = CFG.WALL_H;
     const FH = CFG.FLOOR_THICK;
 
+    // Helper: creates a wall from center, with optional door gaps
+    // xz: 'x' means wall runs along X axis, 'z' means along Z axis
+    function fullWall(cx, cy, cz, length, axis, mat) {
+        const w = axis === 'x' ? length + W : W;
+        const d = axis === 'z' ? length + W : W;
+        box(cx, cy, cz, w, H, d, mat, true);
+        addCol(cx, cy, cz, w, H, d);
+    }
+
+    // Wall with door gap
+    function wallWithDoor(cx, cy, cz, length, axis, doorOffset, doorW, mat) {
+        // doorOffset is position of door center along the wall axis from wall start
+        const halfLen = length / 2;
+        const doorStart = doorOffset - doorW / 2;
+        const doorEnd = doorOffset + doorW / 2;
+
+        // Segment before door
+        const seg1Len = doorStart + halfLen;
+        if (seg1Len > 0.1) {
+            const seg1Center = -halfLen + seg1Len / 2;
+            if (axis === 'z') {
+                box(cx, cy, cz + seg1Center, W, H, seg1Len + W/2, mat, true);
+                addCol(cx, cy, cz + seg1Center, W, H, seg1Len + W/2);
+            } else {
+                box(cx + seg1Center, cy, cz, seg1Len + W/2, H, W, mat, true);
+                addCol(cx + seg1Center, cy, cz, seg1Len + W/2, H, W);
+            }
+        }
+
+        // Segment after door
+        const seg2Len = halfLen - doorEnd;
+        if (seg2Len > 0.1) {
+            const seg2Center = halfLen - seg2Len / 2;
+            if (axis === 'z') {
+                box(cx, cy, cz + seg2Center, W, H, seg2Len + W/2, mat, true);
+                addCol(cx, cy, cz + seg2Center, W, H, seg2Len + W/2);
+            } else {
+                box(cx + seg2Center, cy, cz, seg2Len + W/2, H, W, mat, true);
+                addCol(cx + seg2Center, cy, cz, seg2Len + W/2, H, W);
+            }
+        }
+
+        // Lintel above door
+        const lintelH = H * 0.3;
+        const lintelY = cy + H/2 - lintelH/2;
+        if (axis === 'z') {
+            box(cx, lintelY, cz + doorOffset, W, lintelH, doorW + W, mat, true);
+        } else {
+            box(cx + doorOffset, lintelY, cz, doorW + W, lintelH, W, mat, true);
+        }
+    }
+
     // ==================================================
     // REZ-DE-CHausSEE (y = 0)
-    // Maison de 14x10, origine au centre
-    // X: -7 a 7, Z: -5 a 5
+    // Maison 14x10, X: -7 a 7, Z: -5 a 5
     // ==================================================
 
     // --- Sol ---
-    box(0, 0, 0, 14, FH, 10, M.floor, false, 'floor_g');
+    box(0, 0, 0, 14.5, FH, 10.5, M.floor, false, 'floor_g');
 
     // --- Plafond ---
-    box(0, H, 0, 14, FH, 10, M.ceiling, false, 'ceil_g');
+    box(0, H, 0, 14.5, FH, 10.5, M.ceiling, false, 'ceil_g');
 
-    // === MURS EXTERIEURS ===
+    // === MURS EXTERIEURS (pleins, sans trou sauf porte entree) ===
 
-    // Mur arriere (Z = -5)
-    box(0, H/2, -5, 14, H, W, M.wall, true); wallCollider(0, -5, 14, W);
+    // Mur arriere (Z = -5) - plein
+    fullWall(0, H/2, -5, 14, 'x', M.wall);
 
-    // Mur avant gauche (porte entree: X = -1 a 1)
-    box(-4, H/2, 5, 6, H, W, M.wall, true); wallCollider(-4, 5, 6, W);
-    box(4, H/2, 5, 6, H, W, M.wall, true); wallCollider(4, 5, 6, W);
-    // Linteau au-dessus porte
-    box(0, H*0.83, 5, 2, H*0.33, W, M.wall, true); wallCollider(0, 5, 2, W);
+    // Mur avant (Z = 5) - avec porte entree au centre
+    wallWithDoor(0, H/2, 5, 14, 'x', 0, 2, M.wall);
 
-    // Mur gauche (X = -7)
-    box(-7, H/2, 0, W, H, 10, M.wall, true); wallCollider(-7, 0, W, 10);
+    // Mur gauche (X = -7) - plein
+    fullWall(-7, H/2, 0, 10, 'z', M.wall);
 
-    // Mur droit (X = 7)
-    box(7, H/2, 0, W, H, 10, M.wall, true); wallCollider(7, 0, W, 10);
+    // Mur droit (X = 7) - plein
+    fullWall(7, H/2, 0, 10, 'z', M.wall);
+
+    // === COINS (pour eviter les trous) ===
+    box(-7, H/2, -5, W*2, H, W*2, M.wall, true);
+    box(7, H/2, -5, W*2, H, W*2, M.wall, true);
+    box(-7, H/2, 5, W*2, H, W*2, M.wall, true);
+    box(7, H/2, 5, W*2, H, W*2, M.wall, true);
 
     // === MURS INTERIEURS ===
 
-    // Mur central vertical X=0, Z=-5 a Z=-1.2 (avec porte a Z=-2.5)
-    box(0, H/2, -3.1, W, H, 3.8, M.wall2, true); wallCollider(0, -3.1, W, 3.8);
+    // Mur vertical central X=0 (Z=-5 a Z=5) avec 2 portes
+    wallWithDoor(0, H/2, -3, 4, 'z', 0, 1.2, M.wall2);  // Partie arriere (porte a Z=-3)
+    wallWithDoor(0, H/2, 3, 4, 'z', 0, 1.2, M.wall2);   // Partie avant (porte a Z=3)
 
-    // Mur central vertical X=0, Z=1.2 a Z=5 (avec porte a Z=2.5)
-    box(0, H/2, 3.1, W, H, 3.8, M.wall2, true); wallCollider(0, 3.1, W, 3.8);
-
-    // Mur central horizontal Z=0, X=-7 a X=-1.5 (avec porte a X=-4)
-    box(-4.25, H/2, 0, 5.5, H, W, M.wall2, true); wallCollider(-4.25, 0, 5.5, W);
-
-    // Mur central horizontal Z=0, X=1.5 a X=7 (avec porte a X=4)
-    box(4.25, H/2, 0, 5.5, H, W, M.wall2, true); wallCollider(4.25, 0, 5.5, W);
+    // Mur horizontal Z=0 (X=-7 a X=7) avec 2 portes
+    wallWithDoor(-3.5, H/2, 0, 7, 'x', 0, 1.2, M.wall2);  // Partie gauche (porte a X=-3.5)
+    wallWithDoor(3.5, H/2, 0, 7, 'x', 0, 1.2, M.wall2);   // Partie droite (porte a X=3.5)
 
     // === PORTES ===
     createDoor(0, H/2, 5, 2, 2.4, 'door_front',  M.wood, { name: 'Porte d\'entree', required: 'final_key' });
-    createDoor(0, H/2, -2.5, 1.2, 2.4, 'door_back_inner', M.woodDark, null);
-    createDoor(0, H/2, 2.5, 1.2, 2.4, 'door_front_inner', M.woodDark, null);
-    createDoor(-4, H/2, 0, 1.2, 2.4, 'door_left_inner', M.woodDark, null);
-    createDoor(4, H/2, 0, 1.2, 2.4, 'door_right_inner', M.woodDark, null);
-
-    // Porte cave (sous le sol, accessible par escalier)
-    createDoor(-5.5, H/2, 0, 1.2, 2.4, 'door_cellar', M.wood, { name: 'Porte de la cave', required: 'cellar_key' });
+    createDoor(0, H/2, -3, 1.2, 2.4, 'door_back_inner', M.woodDark, null);
+    createDoor(0, H/2, 3, 1.2, 2.4, 'door_front_inner', M.woodDark, null);
+    createDoor(-3.5, H/2, 0, 1.2, 2.4, 'door_left_inner', M.woodDark, null);
+    createDoor(3.5, H/2, 0, 1.2, 2.4, 'door_right_inner', M.woodDark, null);
 
     // === ESCALIERS ===
-    // Escalier vers etage (coin droite-avant)
+    // Escalier vers etage (coin droit-avant)
     for (let i = 0; i < 7; i++) {
-        box(5.5, i * (H/7), 3.5 - i * 0.4, 1.8, 0.15, 0.45, M.wood, true);
+        box(5.5, i * (H/7) + 0.05, 3.5 - i * 0.4, 1.8, 0.15, 0.45, M.wood, true);
     }
     addCol(5.5, H/2, 2, 1.8, H, 3.5);
 
     // Escalier vers sous-sol (coin gauche-arriere)
     for (let i = 0; i < 7; i++) {
-        box(-5.5, -i * (H/7), -3.5 + i * 0.4, 1.8, 0.15, 0.45, M.woodDark, true);
+        box(-5.5, -i * (H/7) - 0.05, -3.5 + i * 0.4, 1.8, 0.15, 0.45, M.woodDark, true);
     }
     addCol(-5.5, H/2, -2, 1.8, H, 3.5);
 
@@ -318,27 +365,28 @@ function buildHouse() {
     const FY = 3;
 
     // Sol
-    box(0, FY, 0, 14, FH, 10, M.floorUp, false, 'floor_u');
+    box(0, FY, 0, 14.5, FH, 10.5, M.floorUp, false, 'floor_u');
 
     // Plafond
-    box(0, FY + H, 0, 14, FH, 10, M.ceiling, false, 'ceil_u');
+    box(0, FY + H, 0, 14.5, FH, 10.5, M.ceiling, false, 'ceil_u');
 
-    // Murs exterieurs etage (meme empreinte)
-    box(0, FY + H/2, -5, 14, H, W, M.wall, true); wallCollider(0, -5, 14, W);
-    box(0, FY + H/2, 5, 14, H, W, M.wall, true); wallCollider(0, 5, 14, W);
-    box(-7, FY + H/2, 0, W, H, 10, M.wall, true); wallCollider(-7, 0, W, 10);
-    box(7, FY + H/2, 0, W, H, 10, M.wall, true); wallCollider(7, 0, W, 10);
+    // Murs exterieurs etage
+    fullWall(0, FY + H/2, -5, 14, 'x', M.wall);
+    wallWithDoor(0, FY + H/2, 5, 14, 'x', 0, 1.2, M.wall);
+    fullWall(-7, FY + H/2, 0, 10, 'z', M.wall);
+    fullWall(7, FY + H/2, 0, 10, 'z', M.wall);
+
+    // Coins etage
+    box(-7, FY + H/2, -5, W*2, H, W*2, M.wall, true);
+    box(7, FY + H/2, -5, W*2, H, W*2, M.wall, true);
+    box(-7, FY + H/2, 5, W*2, H, W*2, M.wall, true);
+    box(7, FY + H/2, 5, W*2, H, W*2, M.wall, true);
 
     // Murs interieurs etage
-    // Separation chambres (X=0)
-    box(0, FY + H/2, -3, W, H, 4, M.wall2, true); wallCollider(0, -3, W, 4);
-    box(0, FY + H/2, 3, W, H, 4, M.wall2, true); wallCollider(0, 3, W, 4);
-
-    // Couloir arriere (Z=-1.5 a Z=1.5, X=-7 a X=7)
-    // Mur couloir gauche arriere
-    box(-3, FY + H/2, -1, W, H, 4, M.wall2, true); wallCollider(-3, -1, W, 4);
-    // Mur couloir droit arriere
-    box(3, FY + H/2, -1, W, H, 4, M.wall2, true); wallCollider(3, -1, W, 4);
+    fullWall(0, FY + H/2, -3, 4, 'z', M.wall2);
+    fullWall(0, FY + H/2, 3, 4, 'z', M.wall2);
+    fullWall(-3.5, FY + H/2, 0, 7, 'x', M.wall2);
+    fullWall(3.5, FY + H/2, 0, 7, 'x', M.wall2);
 
     // Portes etage
     createDoor(0, FY + H/2, -2, 1.2, 2.4, 'door_bed1', M.wood, { name: 'Chambre 1', required: 'bedroom_key' });
@@ -350,19 +398,25 @@ function buildHouse() {
     const FB = -3;
 
     // Sol
-    box(0, FB, 0, 14, FH, 10, M.stone, false, 'floor_b');
+    box(0, FB, 0, 14.5, FH, 10.5, M.stone, false, 'floor_b');
 
-    // Plafond (dessous du RDC)
-    box(0, FB + H, 0, 14, FH, 10, M.dark, false, 'ceil_b');
+    // Plafond
+    box(0, FB + H, 0, 14.5, FH, 10.5, M.dark, false, 'ceil_b');
 
     // Murs exterieurs sous-sol
-    box(0, FB + H/2, -5, 14, H, W, M.stone, true); wallCollider(0, -5, 14, W);
-    box(0, FB + H/2, 5, 14, H, W, M.stone, true); wallCollider(0, 5, 14, W);
-    box(-7, FB + H/2, 0, W, H, 10, M.stone, true); wallCollider(-7, 0, W, 10);
-    box(7, FB + H/2, 0, W, H, 10, M.stone, true); wallCollider(7, 0, W, 10);
+    fullWall(0, FB + H/2, -5, 14, 'x', M.stone);
+    fullWall(0, FB + H/2, 5, 14, 'x', M.stone);
+    fullWall(-7, FB + H/2, 0, 10, 'z', M.stone);
+    fullWall(7, FB + H/2, 0, 10, 'z', M.stone);
 
-    // Mur central sous-sol (X=0)
-    box(0, FB + H/2, 0, W, H, 10, M.stone, true); wallCollider(0, 0, W, 10);
+    // Coins sous-sol
+    box(-7, FB + H/2, -5, W*2, H, W*2, M.stone, true);
+    box(7, FB + H/2, -5, W*2, H, W*2, M.stone, true);
+    box(-7, FB + H/2, 5, W*2, H, W*2, M.stone, true);
+    box(7, FB + H/2, 5, W*2, H, W*2, M.stone, true);
+
+    // Mur central sous-sol
+    fullWall(0, FB + H/2, 0, 10, 'z', M.stone);
 
     // Porte sous-sol
     createDoor(0, FB + H/2, 2, 1.2, 2.4, 'door_basement', M.metal, { name: 'Porte sous-sol', required: 'basement_key' });
@@ -371,27 +425,40 @@ function buildHouse() {
     // ECLAIRAGE
     // ==================================================
 
-    // Ambient tres faible
-    scene.add(new THREE.AmbientLight(0x181520, 0.4));
+    // Ambient
+    scene.add(new THREE.AmbientLight(0x2a2530, 1.0));
 
-    // Lumieres par piece - REZ-DE-CHausSEE
-    addLight(-3.5, 2.7, 2.5, 0xffaa66, 0.6, 10);  // Salon
-    addLight(3.5, 2.7, 2.5, 0xffcc88, 0.5, 9);     // Cuisine
-    addLight(-3.5, 2.7, -2.5, 0xffaa66, 0.4, 8);   // SdB
-    addLight(3.5, 2.7, -2.5, 0xffaa88, 0.4, 8);    // Rangement
-    addLight(0, 2.7, 0, 0xffddaa, 0.3, 6);          // Couloir
+    // Hemisphere light for global fill
+    scene.add(new THREE.HemisphereLight(0x3a3040, 0x1a1510, 0.6));
+
+    // Lumieres par piece - REZ-DE-CHausSEE (intensite haute, portee grande)
+    addLight(-3.5, 2.5, 2.5, 0xffcc88, 2.5, 14);   // Salon
+    addLight(3.5, 2.5, 2.5, 0xffcc88, 2.2, 14);     // Cuisine
+    addLight(-3.5, 2.5, -2.5, 0xffcc88, 2.0, 12);   // SdB
+    addLight(3.5, 2.5, -2.5, 0xffcc88, 2.0, 12);    // Rangement
+    addLight(0, 2.5, 0, 0xffddaa, 1.5, 10);          // Couloir
 
     // ETAGE
-    addLight(-3.5, FY + 2.7, 2.5, 0xffaa66, 0.4, 8);  // Chambre 1
-    addLight(3.5, FY + 2.7, 2.5, 0xffaa88, 0.4, 8);   // Chambre 2
-    addLight(0, FY + 2.7, -2, 0xffccaa, 0.3, 6);       // Couloir etage
+    addLight(-3.5, FY + 2.5, 2.5, 0xffcc88, 2.0, 12);  // Chambre 1
+    addLight(3.5, FY + 2.5, 2.5, 0xffcc88, 2.0, 12);   // Chambre 2
+    addLight(0, FY + 2.5, -2, 0xffccaa, 1.5, 10);       // Couloir etage
 
     // SOUS-SOL
-    addLight(-3.5, FB + 2.7, 0, 0xaabbee, 0.25, 7);   // Stockage
-    addLight(3.5, FB + 2.7, 0, 0x88aacc, 0.2, 6);     // Generateur
+    addLight(-3.5, FB + 2.5, 0, 0xbbccee, 1.5, 10);   // Stockage
+    addLight(3.5, FB + 2.5, 0, 0x99bbdd, 1.2, 10);     // Generateur
+
+    // Lumieres supplementaires pour eviter les angles morts
+    addLight(-6, 2.5, 4, 0xffcc88, 1.0, 6);
+    addLight(6, 2.5, 4, 0xffcc88, 1.0, 6);
+    addLight(-6, 2.5, -4, 0xffcc88, 0.8, 5);
+    addLight(6, 2.5, -4, 0xffcc88, 0.8, 5);
+    addLight(-3.5, FY + 2.5, 4, 0xffcc88, 1.0, 6);
+    addLight(3.5, FY + 2.5, 4, 0xffcc88, 1.0, 6);
+    addLight(-3.5, FB + 2.5, 4, 0x99bbdd, 1.0, 6);
+    addLight(3.5, FB + 2.5, 4, 0x99bbdd, 1.0, 6);
 
     // Lumiere lune (exterieur)
-    const moon = new THREE.DirectionalLight(0x334466, 0.2);
+    const moon = new THREE.DirectionalLight(0x445577, 0.5);
     moon.position.set(-15, 25, -10);
     moon.castShadow = true;
     moon.shadow.mapSize.set(1024, 1024);
