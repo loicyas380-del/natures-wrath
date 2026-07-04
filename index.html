@@ -3,121 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survival: Nature's Wrath</title>
-    <link rel="stylesheet" href="style.css">
+    <title>The Forgotten House - Jeu d'Horreur 3D</title>
+    <link rel="stylesheet" href="styles/style.css">
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        
-        <!-- HUD -->
-        <div id="hud">
-            <div id="stats">
-                <div class="stat-bar" id="health-bar">
-                    <span class="stat-icon">❤️</span>
-                    <div class="bar-bg"><div class="bar-fill health"></div></div>
-                    <span class="stat-value" id="health-val">100</span>
-                </div>
-                <div class="stat-bar" id="hunger-bar">
-                    <span class="stat-icon">🍖</span>
-                    <div class="bar-bg"><div class="bar-fill hunger"></div></div>
-                    <span class="stat-value" id="hunger-val">100</span>
-                </div>
-                <div class="stat-bar" id="thirst-bar">
-                    <span class="stat-icon">💧</span>
-                    <div class="bar-bg"><div class="bar-fill thirst"></div></div>
-                    <span class="stat-value" id="thirst-val">100</span>
-                </div>
-                <div class="stat-bar" id="stamina-bar">
-                    <span class="stat-icon">⚡</span>
-                    <div class="bar-bg"><div class="bar-fill stamina"></div></div>
-                    <span class="stat-value" id="stamina-val">100</span>
-                </div>
-                <div class="stat-bar" id="temp-bar">
-                    <span class="stat-icon">🌡️</span>
-                    <div class="bar-bg"><div class="bar-fill temp"></div></div>
-                    <span class="stat-value" id="temp-val">37°</span>
-                </div>
+    <!-- Canvas Three.js -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- ============ MENUS ============ -->
+    <div id="main-menu">
+        <div class="menu-overlay"></div>
+        <div class="menu-content">
+            <h1 class="game-title">THE FORGOTTEN<br><span>HOUSE</span></h1>
+            <p class="tagline">Vous ne devriez pas etre la...</p>
+            <div class="menu-buttons">
+                <button id="btn-new-game" class="menu-btn primary">Nouvelle Partie</button>
+                <button id="btn-continue" class="menu-btn" style="display:none">Continuer</button>
+                <button id="btn-options" class="menu-btn">Options</button>
+                <button id="btn-credits" class="menu-btn">Credits</button>
             </div>
-            
-            <div id="time-display">
-                <span id="day-count">Jour 1</span>
-                <span id="time-of-day">☀️ 12:00</span>
-                <span id="weather-display">☀️ Clair</span>
-            </div>
-        </div>
-        
-        <!-- Inventory -->
-        <div id="inventory-panel" class="panel hidden">
-            <div class="panel-header">
-                <h3>🎒 Inventaire</h3>
-                <button class="close-btn" onclick="toggleInventory()">✕</button>
-            </div>
-            <div id="inventory-grid"></div>
-        </div>
-        
-        <!-- Crafting -->
-        <div id="craft-panel" class="panel hidden">
-            <div class="panel-header">
-                <h3>🔨 Craft</h3>
-                <button class="close-btn" onclick="toggleCraft()">✕</button>
-            </div>
-            <div id="craft-list"></div>
-        </div>
-        
-        <!-- Building -->
-        <div id="build-panel" class="panel hidden">
-            <div class="panel-header">
-                <h3>🏠 Construction</h3>
-                <button class="close-btn" onclick="toggleBuild()">✕</button>
-            </div>
-            <div id="build-list"></div>
-        </div>
-        
-        <!-- Minimap -->
-        <canvas id="minimap" width="150" height="150"></canvas>
-        
-        <!-- Controls help -->
-        <div id="controls-help">
-            <span>ZQSD/Flèches: Bouger</span>
-            <span>E: Interagir</span>
-            <span>I: Inventaire</span>
-            <span>C: Craft</span>
-            <span>B: Construire</span>
-            <span>Shift: Sprint</span>
-            <span>1-5: Outils rapides</span>
-        </div>
-        
-        <!-- Notifications -->
-        <div id="notifications"></div>
-        
-        <!-- Death screen -->
-        <div id="death-screen" class="hidden">
-            <h1>☠️ Vous êtes mort</h1>
-            <p id="death-reason"></p>
-            <p id="death-stats"></p>
-            <button onclick="restartGame()">Recommencer</button>
-        </div>
-        
-        <!-- Menu -->
-        <div id="main-menu">
-            <h1>🌿 Survival: Nature's Wrath</h1>
-            <p>La forêt est vivante. La forêt est dangereuse.</p>
-            <button onclick="startGame()">Jouer</button>
-            <div class="controls-info">
-                <h3>Contrôles</h3>
-                <p>ZQSD ou Flèches: Se déplacer</p>
-                <p>E: Interagir / Récolter</p>
-                <p>I: Inventaire</p>
-                <p>C: Menu Craft</p>
-                <p>B: Menu Construction</p>
-                <p>Shift: Sprint</p>
-                <p>1-5: Sélectionner outil rapide</p>
-                <p>Clic: Attaquer / Utiliser</p>
-            </div>
+            <p class="version">v0.1 - Three.js 3D</p>
         </div>
     </div>
-    
-    <script src="game.js"></script>
+
+    <!-- Menu Options -->
+    <div id="options-menu" class="submenu hidden">
+        <div class="menu-overlay"></div>
+        <div class="submenu-content">
+            <h2>Options</h2>
+            <div class="option-row">
+                <label>Volume General</label>
+                <input type="range" id="opt-volume" min="0" max="100" value="70">
+                <span id="opt-volume-val">70%</span>
+            </div>
+            <div class="option-row">
+                <label>Volume Musique</label>
+                <input type="range" id="opt-music" min="0" max="100" value="50">
+                <span id="opt-music-val">50%</span>
+            </div>
+            <div class="option-row">
+                <label>Sensibilite Souris</label>
+                <input type="range" id="opt-sensitivity" min="1" max="20" value="8">
+                <span id="opt-sens-val">8</span>
+            </div>
+            <div class="option-row">
+                <label>Qualite Graphique</label>
+                <select id="opt-quality">
+                    <option value="low">Basse</option>
+                    <option value="medium" selected>Moyenne</option>
+                    <option value="high">Haute</option>
+                </select>
+            </div>
+            <div class="option-row">
+                <label>Plein Ecran</label>
+                <button id="opt-fullscreen" class="small-btn">Activer</button>
+            </div>
+            <button id="btn-options-back" class="menu-btn">Retour</button>
+        </div>
+    </div>
+
+    <!-- Menu Credits -->
+    <div id="credits-menu" class="submenu hidden">
+        <div class="menu-overlay"></div>
+        <div class="submenu-content">
+            <h2>Credits</h2>
+            <p class="credit-line">The Forgotten House</p>
+            <p class="credit-sub">Jeu d'Horreur 3D - Style Granny</p>
+            <br>
+            <p class="credit-line">Moteur: Three.js r128</p>
+            <p class="credit-sub">Rendu WebGL</p>
+            <br>
+            <p class="credit-line">Conception & Code</p>
+            <p class="credit-sub">Projet open-source</p>
+            <br>
+            <p class="credit-sub dim">Ce jeu est une creation originale.</p>
+            <p class="credit-sub dim">Aucun contenu protege n'a ete copie.</p>
+            <button id="btn-credits-back" class="menu-btn">Retour</button>
+        </div>
+    </div>
+
+    <!-- ============ HUD EN JEU ============ -->
+    <div id="hud" class="hidden">
+        <!-- Barres de stats -->
+        <div id="hud-left">
+            <div class="hud-bar">
+                <span class="bar-icon">🫁</span>
+                <div class="bar-track"><div class="bar-fill stamina-fill" id="stamina-bar"></div></div>
+            </div>
+        </div>
+
+        <!-- Crosshair -->
+        <div id="crosshair">
+            <div class="ch-dot"></div>
+        </div>
+
+        <!-- Item tenu -->
+        <div id="held-item" class="hidden">
+            <span id="held-item-icon"></span>
+        </div>
+
+        <!-- Prompt d'interaction -->
+        <div id="interact-prompt" class="hidden">
+            <span id="interact-text">[E] Ouvrir</span>
+        </div>
+
+        <!-- Inventaire hotbar -->
+        <div id="inventory-bar">
+            <div class="inv-slot" data-slot="0"><span class="slot-key">1</span><span class="slot-icon" id="slot-0"></span></div>
+            <div class="inv-slot" data-slot="1"><span class="slot-key">2</span><span class="slot-icon" id="slot-1"></span></div>
+            <div class="inv-slot" data-slot="2"><span class="slot-key">3</span><span class="slot-icon" id="slot-2"></span></div>
+            <div class="inv-slot" data-slot="3"><span class="slot-key">4</span><span class="slot-icon" id="slot-3"></span></div>
+            <div class="inv-slot" data-slot="4"><span class="slot-key">5</span><span class="slot-icon" id="slot-4"></span></div>
+            <div class="inv-slot" data-slot="5"><span class="slot-key">6</span><span class="slot-icon" id="slot-5"></span></div>
+        </div>
+
+        <!-- Indicateur de bruit -->
+        <div id="noise-indicator" class="hidden">
+            <div class="noise-wave"></div>
+            <div class="noise-wave"></div>
+            <div class="noise-wave"></div>
+        </div>
+
+        <!-- Instructions -->
+        <div id="hud-hint"></div>
+    </div>
+
+    <!-- ============ PAUSE ============ -->
+    <div id="pause-menu" class="hidden">
+        <div class="menu-overlay"></div>
+        <div class="submenu-content">
+            <h2>PAUSE</h2>
+            <button id="btn-resume" class="menu-btn primary">Reprendre</button>
+            <button id="btn-pause-options" class="menu-btn">Options</button>
+            <button id="btn-quit" class="menu-btn danger">Quitter</button>
+        </div>
+    </div>
+
+    <!-- ============ ECRAN MORT ============ -->
+    <div id="death-screen" class="hidden">
+        <div class="death-overlay"></div>
+        <div class="death-content">
+            <h1 class="death-title">VOUS ETES MORT</h1>
+            <p id="death-cause" class="death-cause"></p>
+            <p id="death-time" class="death-time"></p>
+            <button id="btn-retry" class="menu-btn primary">Reessayer</button>
+            <button id="btn-death-quit" class="menu-btn">Menu Principal</button>
+        </div>
+    </div>
+
+    <!-- ============ ECRAN VICTOIRE ============ -->
+    <div id="win-screen" class="hidden">
+        <div class="win-overlay"></div>
+        <div class="win-content">
+            <h1 class="win-title">VOUS AVEZ ECHAPPE !</h1>
+            <p id="win-time" class="win-time"></p>
+            <p id="win-stats" class="win-stats"></p>
+            <button id="btn-win-menu" class="menu-btn primary">Menu Principal</button>
+        </div>
+    </div>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <div id="notifications"></div>
+
+    <!-- ============ CHARGEMENT ============ -->
+    <div id="loading-screen" class="hidden">
+        <div class="loading-content">
+            <h2>Chargement...</h2>
+            <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+            <p id="loading-text">Preparation de la maison...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="scripts/game.js"></script>
 </body>
 </html>

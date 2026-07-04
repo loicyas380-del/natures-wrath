@@ -1,0 +1,566 @@
+/* ============================================
+   THE FORGOTTEN HOUSE - Style CSS
+   Theme: Horreur sombre, atmospherique
+   ============================================ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    overflow: hidden;
+    background: #000;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    color: #ccc;
+    user-select: none;
+    cursor: none;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+
+/* ---- Overlays ---- */
+.menu-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, rgba(10,5,5,0.85) 0%, rgba(0,0,0,0.97) 100%);
+    z-index: -1;
+}
+
+.death-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(40,0,0,0.92);
+    z-index: -1;
+}
+
+.win-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,10,5,0.92);
+    z-index: -1;
+}
+
+/* ---- Main Menu ---- */
+#main-menu {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-content {
+    text-align: center;
+    z-index: 1;
+    animation: fadeIn 1.5s ease;
+}
+
+.game-title {
+    font-size: 52px;
+    font-weight: 100;
+    letter-spacing: 12px;
+    color: #a33;
+    text-shadow: 0 0 40px rgba(170,50,50,0.4), 0 2px 8px rgba(0,0,0,0.8);
+    line-height: 1.1;
+    margin-bottom: 8px;
+}
+
+.game-title span {
+    font-size: 68px;
+    font-weight: 700;
+    letter-spacing: 16px;
+    color: #c44;
+}
+
+.tagline {
+    font-style: italic;
+    color: #665;
+    font-size: 14px;
+    margin-bottom: 40px;
+    letter-spacing: 2px;
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.menu-btn {
+    padding: 12px 50px;
+    font-size: 16px;
+    font-family: 'Georgia', serif;
+    background: rgba(30,10,10,0.8);
+    border: 1px solid #533;
+    color: #b88;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    transition: all 0.3s;
+    min-width: 240px;
+}
+
+.menu-btn:hover {
+    background: rgba(80,20,20,0.8);
+    border-color: #a55;
+    color: #ecc;
+    text-shadow: 0 0 10px rgba(200,50,50,0.5);
+}
+
+.menu-btn.primary {
+    border-color: #a44;
+    color: #e99;
+    background: rgba(60,15,15,0.9);
+}
+
+.menu-btn.danger {
+    border-color: #833;
+    color: #c66;
+}
+
+.small-btn {
+    padding: 6px 16px;
+    font-size: 12px;
+    font-family: 'Georgia', serif;
+    background: rgba(30,10,10,0.8);
+    border: 1px solid #533;
+    color: #b88;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.small-btn:hover { background: rgba(80,20,20,0.8); border-color: #a55; }
+
+.version {
+    margin-top: 30px;
+    font-size: 11px;
+    color: #333;
+    letter-spacing: 2px;
+}
+
+/* ---- Submenus (Options, Credits) ---- */
+.submenu {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1010;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.submenu-content {
+    text-align: center;
+    z-index: 1;
+    background: rgba(10,5,5,0.95);
+    border: 1px solid #433;
+    border-radius: 6px;
+    padding: 30px 40px;
+    min-width: 380px;
+    backdrop-filter: blur(8px);
+}
+
+.submenu-content h2 {
+    font-size: 28px;
+    color: #a55;
+    letter-spacing: 6px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+.option-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.option-row label {
+    font-size: 13px;
+    color: #998;
+    min-width: 140px;
+    text-align: left;
+}
+
+.option-row input[type="range"] {
+    flex: 1;
+    accent-color: #a44;
+    max-width: 140px;
+}
+
+.option-row span {
+    font-size: 12px;
+    color: #776;
+    min-width: 35px;
+    text-align: right;
+}
+
+.option-row select {
+    background: #1a0a0a;
+    border: 1px solid #533;
+    color: #b88;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-family: inherit;
+}
+
+.credit-line { font-size: 15px; color: #a88; margin-bottom: 2px; }
+.credit-sub { font-size: 12px; color: #665; }
+.dim { opacity: 0.5; font-size: 11px !important; margin-top: 4px; }
+
+/* ---- HUD ---- */
+#hud { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+
+#hud-left {
+    position: absolute;
+    top: 16px; left: 16px;
+}
+
+.hud-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.45);
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(3px);
+}
+
+.bar-icon { font-size: 14px; }
+.bar-track { width: 120px; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.stamina-fill { background: linear-gradient(90deg, #3a7a3a, #6c6); width: 100%; }
+
+/* Crosshair */
+#crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.ch-dot {
+    width: 3px; height: 3px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(255,255,255,0.3);
+}
+
+/* Held item */
+#held-item {
+    position: absolute;
+    bottom: 100px; right: 40px;
+    font-size: 48px;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.8));
+    transition: opacity 0.3s;
+}
+
+/* Interaction prompt */
+#interact-prompt {
+    position: absolute;
+    bottom: 180px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    padding: 6px 18px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #dda;
+    border: 1px solid rgba(200,150,100,0.2);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* Inventory bar */
+#inventory-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 3px;
+    pointer-events: auto;
+}
+
+.inv-slot {
+    width: 50px; height: 50px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    font-size: 24px;
+    transition: all 0.15s;
+}
+
+.inv-slot.active {
+    border-color: #a66;
+    background: rgba(100,30,30,0.3);
+    box-shadow: 0 0 8px rgba(170,60,60,0.3);
+}
+
+.inv-slot .slot-key {
+    position: absolute;
+    top: 1px; left: 3px;
+    font-size: 9px;
+    color: #555;
+}
+
+.inv-slot .slot-icon {
+    font-size: 22px;
+}
+
+/* Noise indicator */
+#noise-indicator {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.noise-wave {
+    width: 2px;
+    height: 20px;
+    background: rgba(255,100,100,0.6);
+    border-radius: 1px;
+    animation: noiseWave 0.4s ease-in-out infinite alternate;
+}
+
+.noise-wave:nth-child(2) { animation-delay: 0.1s; height: 28px; }
+.noise-wave:nth-child(3) { animation-delay: 0.2s; height: 16px; }
+
+@keyframes noiseWave {
+    from { transform: scaleY(0.3); opacity: 0.3; }
+    to { transform: scaleY(1); opacity: 0.8; }
+}
+
+/* HUD hint */
+#hud-hint {
+    position: absolute;
+    top: 60px; left: 16px;
+    font-size: 11px;
+    color: #554;
+    max-width: 250px;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+/* ---- Pause ---- */
+#pause-menu {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1020;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---- Death Screen ---- */
+#death-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.death-content {
+    text-align: center;
+    z-index: 1;
+    animation: deathFade 2s ease;
+}
+
+.death-title {
+    font-size: 48px;
+    color: #a00;
+    letter-spacing: 8px;
+    text-shadow: 0 0 40px rgba(200,0,0,0.5);
+    margin-bottom: 16px;
+    animation: deathPulse 2s ease-in-out infinite;
+}
+
+.death-cause {
+    font-size: 16px;
+    color: #a66;
+    font-style: italic;
+    margin-bottom: 8px;
+}
+
+.death-time {
+    font-size: 13px;
+    color: #655;
+    margin-bottom: 30px;
+}
+
+@keyframes deathPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+@keyframes deathFade {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ---- Win Screen ---- */
+#win-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.win-content {
+    text-align: center;
+    z-index: 1;
+    animation: fadeIn 2s ease;
+}
+
+.win-title {
+    font-size: 42px;
+    color: #4a4;
+    letter-spacing: 6px;
+    text-shadow: 0 0 30px rgba(50,200,50,0.3);
+    margin-bottom: 16px;
+}
+
+.win-time { font-size: 14px; color: #8a8; margin-bottom: 6px; }
+.win-stats { font-size: 12px; color: #676; margin-bottom: 30px; }
+
+/* ---- Notifications ---- */
+#notifications {
+    position: fixed;
+    top: 80px; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 500;
+    pointer-events: none;
+}
+
+.notif {
+    background: rgba(0,0,0,0.8);
+    padding: 5px 16px;
+    border-radius: 3px;
+    font-size: 12px;
+    text-align: center;
+    animation: notifIn 0.25s, notifOut 0.4s 2.6s forwards;
+    border-left: 3px solid #555;
+    backdrop-filter: blur(4px);
+}
+
+.notif.warning { border-left-color: #a80; color: #ca8; }
+.notif.danger { border-left-color: #a33; color: #e88; }
+.notif.success { border-left-color: #3a3; color: #8c8; }
+.notif.info { border-left-color: #55a; color: #88c; }
+
+@keyframes notifIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes notifOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ---- Loading ---- */
+#loading-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #050202;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-content { text-align: center; }
+.loading-content h2 { font-size: 22px; color: #644; letter-spacing: 6px; margin-bottom: 16px; }
+
+.loading-bar {
+    width: 260px; height: 4px;
+    background: #1a0a0a;
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 0 auto 12px;
+}
+
+.loading-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #622, #a44);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+#loading-text { font-size: 11px; color: #544; }
+
+/* ---- Util ---- */
+.hidden { display: none !important; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- Vignette post-effet ---- */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Screen flash (damage) */
+.screen-flash {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(180,0,0,0.3);
+    pointer-events: none;
+    z-index: 6;
+    animation: flashOut 0.4s forwards;
+}
+
+@keyframes flashOut { to { opacity: 0; } }
+
+/* Mobile touch controls */
+#mobile-controls {
+    display: none;
+    position: fixed;
+    bottom: 80px; left: 16px;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+    #mobile-controls { display: block; }
+    .game-title { font-size: 32px; }
+    .game-title span { font-size: 42px; }
+    .menu-btn { min-width: 200px; padding: 10px 30px; font-size: 14px; }
+}
