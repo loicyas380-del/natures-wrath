@@ -1,1010 +1,1114 @@
 /* ============================================
-   THE FORGOTTEN HOUSE - Moteur de Jeu 3D
-   Jeu d'horreur FPS — Style Granny original
-   Three.js r128 — Aucune dependance externe
+   THE FORGOTTEN HOUSE — Moteur 3D (v2)
+   Jeu d'horreur FPS — Three.js r128
    ============================================ */
 
+"use strict";
+
 // ============================================
-// SECTION 1: CONFIGURATION & CONSTANTS
+// 1. CONFIGURATION
 // ============================================
-const CONFIG = {
-    WORLD: { GRAVITY: -20, PLAYER_HEIGHT: 1.7, PLAYER_RADIUS: 0.35, CROUCH_HEIGHT: 0.9 },
-    PLAYER: { SPEED: 3.5, SPRINT_MULT: 1.7, SPRINT_DRAIN: 15, STAMINA_REGEN: 8, JUMP_FORCE: 6, MOUSE_SENS: 0.002 },
-    ENEMY: { SPEED_PATROL: 1.8, SPEED_CHASE: 4.2, SPEED_SEARCH: 2.5, DETECT_RANGE: 14, HEAR_RANGE: 10, HEAR_RUN: 18, CHASE_TIMEOUT: 8, SEARCH_TIME: 12 },
-    ITEMS: {
-        CELLAR_KEY:  { id: 'cellar_key',  name: 'Cle de la cave',      icon: '🔑', color: 0x886633 },
-        BEDROOM_KEY: { id: 'bedroom_key', name: 'Cle de la chambre',   icon: '🗝️', color: 0x6688aa },
-        BASEMENT_KEY:{ id: 'basement_key',name: 'Cle du sous-sol',     icon: '🔑', color: 0xaa4444 },
-        WIRE_CUTTER:{ id: 'wire_cutter', name: 'Coupe-fil',            icon: '✂️', color: 0x888888 },
-        GEN_PART1:  { id: 'gen_part1',   name: 'Piece generateur (1)', icon: '⚙️', color: 0xaaaaaa },
-        GEN_PART2:  { id: 'gen_part2',   name: 'Piece generateur (2)', icon: '⚙️', color: 0x999999 },
-        FLASHLIGHT:{ id: 'flashlight',  name: 'Lampe torche',         icon: '🔦', color: 0xffff88 },
-        CROWBAR:    { id: 'crowbar',     name: 'Pied-de-biche',       icon: '🔧', color: 0xcc6633 },
-        MASTER_KEY: { id: 'master_key',  name: 'Passe-partout',       icon: '🗝️', color: 0xdddd44 },
-        FINAL_KEY:  { id: 'final_key',   name: 'Cle de sortie',       icon: '🔑', color: 0xff4444 },
-        MEDKIT:     { id: 'medkit',      name: 'Trousse de soin',     icon: '🩹', color: 0xff4444 },
+const CFG = {
+    CAM_H: 1.7,
+    CAM_CROUCH: 0.9,
+    RADIUS: 0.3,
+    SPEED: 3.5,
+    SPRINT_MULT: 1.8,
+    SPRINT_DRAIN: 18,
+    STAMINA_REGEN: 10,
+    SENSITIVITY: 0.002,
+    WALL_H: 3,
+    WALL_T: 0.2,
+    FLOOR_THICK: 0.15,
+
+    ENEMY_SPEED_PATROL: 1.6,
+    ENEMY_SPEED_CHASE: 4.0,
+    ENEMY_SPEED_SEARCH: 2.2,
+    ENEMY_DETECT: 12,
+    ENEMY_HEAR: 9,
+    ENEMY_HEAR_RUN: 16,
+    ENEMY_CHASE_TIME: 7,
+    ENEMY_SEARCH_TIME: 10,
+
+    ITEM_DEFS: {
+        cellar_key:   { name: 'Cle cave',       icon: '🔑', color: 0xaa7733, shape: 'key' },
+        bedroom_key:  { name: 'Cle chambre',     icon: '🗝️', color: 0x6699cc, shape: 'key' },
+        basement_key: { name: 'Cle sous-sol',    icon: '🔑', color: 0xcc4444, shape: 'key' },
+        wire_cutter:  { name: 'Coupe-fil',       icon: '✂️', color: 0x999999, shape: 'tool' },
+        gen_part1:    { name: 'Moteur (1/2)',     icon: '⚙️', color: 0xaaaaaa, shape: 'gear' },
+        gen_part2:    { name: 'Moteur (2/2)',     icon: '⚙️', color: 0x999999, shape: 'gear' },
+        flashlight:   { name: 'Lampe torche',    icon: '🔦', color: 0xffffaa, shape: 'cylinder' },
+        crowbar:      { name: 'Pied-de-biche',   icon: '🔧', color: 0xcc6633, shape: 'tool' },
+        final_key:    { name: 'Cle de sortie',   icon: '🔑', color: 0xff3333, shape: 'key' },
+        medkit:       { name: 'Trousse soin',    icon: '🩹', color: 0xff4444, shape: 'box' },
     },
-    DOORS: {
-        CELLAR:   { id: 'door_cellar',   required: 'cellar_key',   name: 'Porte de la cave' },
-        BEDROOM:  { id: 'door_bedroom',  required: 'bedroom_key',  name: 'Porte de la chambre' },
-        BASEMENT: { id: 'door_basement', required: 'basement_key', name: 'Porte du sous-sol' },
-        FRONT:    { id: 'door_front',    required: 'final_key',    name: 'Porte d\'entree' },
-        SECRET:   { id: 'door_secret',   required: 'crowbar',      name: 'Passage secret' },
-    }
 };
 
 // ============================================
-// SECTION 2: ETAT DU JEU
-// ============================================
-let gameState = {
-    running: false,
-    paused: false,
-    time: 0,
-    dayTime: 0,
-    startTime: 0,
-    difficulty: 1,
-    itemsCollected: 0,
-    totalItems: 0,
-    generatorFixed: false,
-    alarmCut: false,
-    doorsOpened: [],
-    playerDead: false,
-    hasWon: false,
-};
-
-let settings = {
-    volume: 0.7,
-    musicVolume: 0.5,
-    sensitivity: 8,
-    quality: 'medium',
-};
-
-// ============================================
-// SECTION 3: SYSTEME AUDIO PROCEDURAL
-// ============================================
-class AudioSystem {
-    constructor() {
-        this.ctx = null;
-        this.masterGain = null;
-        this.musicGain = null;
-        this.initialized = false;
-    }
-
-    init() {
-        if (this.initialized) return;
-        try {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-            this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = settings.volume;
-            this.masterGain.connect(this.ctx.destination);
-            this.musicGain = this.ctx.createGain();
-            this.musicGain.gain.value = settings.musicVolume;
-            this.musicGain.connect(this.masterGain);
-            this.initialized = true;
-        } catch(e) { console.warn('Audio non disponible'); }
-    }
-
-    resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
-
-    setVolume(v) { settings.volume = v; if (this.masterGain) this.masterGain.gain.value = v; }
-    setMusicVolume(v) { settings.musicVolume = v; if (this.musicGain) this.musicGain.gain.value = v; }
-
-    playTone(freq, duration, type, volume, detune) {
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = type || 'sine';
-        osc.frequency.value = freq;
-        if (detune) osc.detune.value = detune;
-        gain.gain.setValueAtTime((volume || 0.1) * settings.volume, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        osc.start();
-        osc.stop(this.ctx.currentTime + duration);
-    }
-
-    playNoise(duration, volume) {
-        if (!this.ctx) return;
-        const bufferSize = this.ctx.sampleRate * duration;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
-        const source = this.ctx.createBufferSource();
-        source.buffer = buffer;
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime((volume || 0.05) * settings.volume, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 800;
-        source.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.masterGain);
-        source.start();
-    }
-
-    footstep(loud) {
-        const vol = loud ? 0.12 : 0.04;
-        this.playTone(80 + Math.random() * 40, 0.08, 'triangle', vol);
-        this.playNoise(0.05, vol * 0.5);
-    }
-
-    doorOpen() {
-        this.playTone(200, 0.3, 'sawtooth', 0.08);
-        this.playTone(150, 0.4, 'square', 0.05);
-    }
-
-    doorLocked() {
-        this.playTone(400, 0.1, 'square', 0.08);
-        setTimeout(() => this.playTone(300, 0.1, 'square', 0.08), 120);
-    }
-
-    itemPickup() {
-        this.playTone(600, 0.1, 'sine', 0.1);
-        setTimeout(() => this.playTone(800, 0.15, 'sine', 0.1), 80);
-        setTimeout(() => this.playTone(1000, 0.2, 'sine', 0.08), 160);
-    }
-
-    hit() {
-        this.playTone(100, 0.3, 'sawtooth', 0.15);
-        this.playNoise(0.2, 0.1);
-    }
-
-    ambientLoop() {
-        if (!this.ctx || !gameState.running) return;
-        this.playNoise(3, 0.02);
-        this.playTone(55 + Math.random() * 10, 4, 'sine', 0.015);
-        setTimeout(() => this.ambientLoop(), 3000 + Math.random() * 4000);
-    }
-
-    chaseMusic() {
-        if (!this.ctx) return;
-        const notes = [110, 130, 110, 146, 110, 130, 98, 110];
-        notes.forEach((n, i) => {
-            setTimeout(() => {
-                if (gameState.running && !gameState.paused) {
-                    this.playTone(n, 0.3, 'sawtooth', 0.06 * settings.musicVolume);
-                    this.playTone(n * 0.5, 0.3, 'square', 0.03 * settings.musicVolume);
-                }
-            }, i * 250);
-        });
-    }
-
-    heartbeat(rate) {
-        if (!this.ctx) return;
-        this.playTone(40, 0.15, 'sine', 0.12);
-        setTimeout(() => this.playTone(35, 0.12, 'sine', 0.08), 150);
-    }
-
-    creak() {
-        this.playTone(300 + Math.random() * 200, 0.2, 'sawtooth', 0.03);
-    }
-
-    enemyGrowl() {
-        this.playTone(60, 0.5, 'sawtooth', 0.08);
-        this.playTone(55, 0.6, 'square', 0.04);
-    }
-}
-
-const audio = new AudioSystem();
-
-// ============================================
-// SECTION 4: THREE.JS — MOTEUR 3D
+// 2. ETAT GLOBAL
 // ============================================
 let scene, camera, renderer, clock;
+let gameTime = 0;
 let colliders = [];
 let interactables = [];
 let itemObjects = [];
 let doorObjects = [];
-let hidingSpots = [];
-let waypointGroups = [];
+let hideSpots = [];
+let gameRunning = false;
+let gamePaused = false;
+let startTime = 0;
+let itemsFound = 0;
+let totalItems = 0;
+let generatorFixed = false;
+let alarmCut = false;
+let playerDead = false;
+let hasWon = false;
+let settings = { vol: 0.7, music: 0.5, sens: 8, quality: 'medium' };
 
-function initEngine() {
+// ============================================
+// 3. AUDIO PROCEDURAL (Web Audio API)
+// ============================================
+let audioCtx = null;
+let masterGain = null;
+let musicGain = null;
+
+function audioInit() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = settings.vol;
+    masterGain.connect(audioCtx.destination);
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = settings.music;
+    musicGain.connect(masterGain);
+}
+
+function audioResume() { if (audioCtx?.state === 'suspended') audioCtx.resume(); }
+
+function playTone(freq, dur, type, vol) {
+    if (!audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime((vol || 0.08) * settings.vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(masterGain);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+}
+
+function playNoise(dur, vol) {
+    if (!audioCtx) return;
+    const n = audioCtx.sampleRate * dur;
+    const buf = audioCtx.createBuffer(1, n, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * 0.3;
+    const s = audioCtx.createBufferSource();
+    s.buffer = buf;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime((vol || 0.04) * settings.vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    const f = audioCtx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 600;
+    s.connect(f); f.connect(g); g.connect(masterGain);
+    s.start();
+}
+
+const SFX = {
+    step(loud) {
+        playTone(90 + Math.random() * 30, 0.07, 'triangle', loud ? 0.1 : 0.03);
+        playNoise(0.04, loud ? 0.04 : 0.01);
+    },
+    door() { playTone(220, 0.25, 'sawtooth', 0.06); playTone(160, 0.35, 'square', 0.03); },
+    lock() { playTone(440, 0.08, 'square', 0.07); setTimeout(() => playTone(330, 0.08, 'square', 0.07), 100); },
+    pickup() {
+        playTone(700, 0.1, 'sine', 0.1);
+        setTimeout(() => playTone(900, 0.12, 'sine', 0.1), 70);
+        setTimeout(() => playTone(1100, 0.18, 'sine', 0.08), 140);
+    },
+    hit() { playTone(80, 0.3, 'sawtooth', 0.12); playNoise(0.2, 0.08); },
+    creak() { playTone(350 + Math.random() * 200, 0.15, 'sawtooth', 0.025); },
+    growl() { playTone(55, 0.5, 'sawtooth', 0.06); playTone(48, 0.6, 'square', 0.03); },
+    heartbeat() { playTone(38, 0.12, 'sine', 0.1); setTimeout(() => playTone(32, 0.1, 'sine', 0.07), 140); },
+    ambient() {
+        if (!gameRunning) return;
+        playNoise(3, 0.015);
+        playTone(50 + Math.random() * 15, 4, 'sine', 0.01);
+        setTimeout(() => SFX.ambient(), 3500 + Math.random() * 4000);
+    },
+    chase() {
+        if (!audioCtx) return;
+        [110, 130, 110, 146, 110, 130, 98, 110].forEach((n, i) => {
+            setTimeout(() => {
+                if (gameRunning && !gamePaused) {
+                    playTone(n, 0.25, 'sawtooth', 0.05 * settings.music);
+                    playTone(n * 0.5, 0.25, 'square', 0.025 * settings.music);
+                }
+            }, i * 220);
+        });
+    },
+};
+
+// ============================================
+// 4. THREE.JS SETUP
+// ============================================
+function engineInit() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x050208);
-    scene.fog = new THREE.FogExp2(0x050208, 0.06);
+    scene.background = new THREE.Color(0x08050a);
+    scene.fog = new THREE.FogExp2(0x08050a, 0.045);
 
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, CONFIG.WORLD.PLAYER_HEIGHT, 0);
+    camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 120);
 
-    const qualitySettings = {
-        low:    { shadowMap: false, pixelsRatio: 0.75, shadows: false },
-        medium: { shadowMap: true,  pixelsRatio: 1,    shadows: true  },
-        high:   { shadowMap: true,  pixelsRatio: 1.5,  shadows: true  },
-    };
-    const qs = qualitySettings[settings.quality] || qualitySettings.medium;
-
-    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: qs.shadowMap });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio * qs.pixelsRatio, 2));
-    renderer.shadowMap.enabled = qs.shadows;
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.6;
+    renderer.toneMappingExposure = 0.8;
 
     clock = new THREE.Clock();
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+    addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(innerWidth, innerHeight);
     });
 }
 
 // ============================================
-// SECTION 5: GENERATION DE LA MAISON
+// 5. OUTILS GEOMETRIE
 // ============================================
-function createMaterial(color, opts) {
-    return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, ...opts });
+function mat(color, opts) {
+    return new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0.05, ...opts });
 }
 
-function addBox(x, y, z, w, h, d, material, castsShadow, receiveShadow, name) {
-    const geo = new THREE.BoxGeometry(w, h, d);
-    const mesh = new THREE.Mesh(geo, material);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = !!castsShadow;
-    mesh.receiveShadow = receiveShadow !== false;
-    if (name) mesh.name = name;
-    scene.add(mesh);
-    return mesh;
+function box(x, y, z, w, h, d, material, shadows, name) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    m.position.set(x, y, z);
+    if (shadows) { m.castShadow = true; m.receiveShadow = true; }
+    else { m.receiveShadow = true; }
+    if (name) m.name = name;
+    scene.add(m);
+    return m;
 }
 
-function addCollider(x, y, z, w, h, d) {
-    colliders.push({ min: { x: x-w/2, y: y-h/2, z: z-d/2 }, max: { x: x+w/2, y: y+h/2, z: z+d/2 } });
+function cyl(x, y, z, rTop, rBot, h, segs, material, shadows) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, segs), material);
+    m.position.set(x, y, z);
+    if (shadows) { m.castShadow = true; m.receiveShadow = true; }
+    scene.add(m);
+    return m;
 }
 
-function addInteractable(x, y, z, radius, data) {
+function addCol(x, y, z, w, h, d) {
+    colliders.push({
+        minX: x - w/2, maxX: x + w/2,
+        minY: y - h/2, maxY: y + h/2,
+        minZ: z - d/2, maxZ: z + d/2
+    });
+}
+
+function addInteract(x, y, z, radius, data) {
     interactables.push({ x, y, z, radius, data });
 }
 
+function wallCollider(x, z, w, d) {
+    addCol(x, CFG.WALL_H / 2, z, w, CFG.WALL_H, d);
+}
+
+// ============================================
+// 6. GENERATION DE LA MAISON
+// ============================================
+// Layout: Maison 14m x 10m, 3 etages
+// Ground (y=0): 4 pieces + couloir
+// Upstairs (y=3): 3 pieces + couloir
+// Basement (y=-3): 2 pieces
+
+const M = {}; // Materials
+
 function buildHouse() {
-    const WALL_H = 3;
-    const WALL_THICK = 0.15;
-    const FLOOR_Y_G = 0;
-    const FLOOR_Y_1 = 3;
-    const FLOOR_Y_B = -3;
-    const CEIL_MAT = createMaterial(0x2a2218);
-    const FLOOR_MAT = createMaterial(0x3a3020);
-    const WALL_MAT = createMaterial(0x4a4035);
-    const WALL_MAT2 = createMaterial(0x3d3530);
-    const WOOD_MAT = createMaterial(0x5a3a1a);
-    const DARK_MAT = createMaterial(0x1a1510);
-    const CARPET_MAT = createMaterial(0x4a1515);
+    M.wall = mat(0x5a4a3a);
+    M.wall2 = mat(0x4d3f32);
+    M.floor = mat(0x3a3020);
+    M.floorUp = mat(0x3a2818);
+    M.ceiling = mat(0x2a2218);
+    M.dark = mat(0x1a1510);
+    M.wood = mat(0x6a4420);
+    M.woodDark = mat(0x4a2a10);
+    M.stone = mat(0x444440);
+    M.metal = mat(0x666666, { metalness: 0.6, roughness: 0.4 });
+    M.brick = mat(0x6a3a2a);
+    M.carpet = mat(0x4a1818);
+    M.tile = mat(0x888888, { roughness: 0.3 });
 
-    // Sol extérieur
-    addBox(0, -0.05, 0, 60, 0.1, 60, createMaterial(0x1a1a12), false, true, 'ground');
+    const W = CFG.WALL_T;
+    const H = CFG.WALL_H;
+    const FH = CFG.FLOOR_THICK;
 
-    // ========================
-    // REZ-DE-CHausSEE (y=0)
-    // ========================
+    // ==================================================
+    // REZ-DE-CHausSEE (y = 0)
+    // Maison de 14x10, origine au centre
+    // X: -7 a 7, Z: -5 a 5
+    // ==================================================
 
-    // Sols
-    addBox(6, 0.02, 6, 12, 0.04, 12, CARPET_MAT, false, true);   // Salon
-    addBox(-6, 0.02, 6, 8, 0.04, 12, FLOOR_MAT, false, true);    // Cuisine
-    addBox(6, 0.02, -6, 12, 0.04, 6, FLOOR_MAT, false, true);    // Couloir
-    addBox(-6, 0.02, -4, 8, 0.04, 8, createMaterial(0x2a2a25), false, true); // Salle de bain
+    // --- Sol ---
+    box(0, 0, 0, 14, FH, 10, M.floor, false, 'floor_g');
 
-    // Plafonds
-    addBox(6, WALL_H, 6, 12, 0.1, 12, CEIL_MAT, false, true);
-    addBox(-6, WALL_H, 6, 8, 0.1, 12, CEIL_MAT, false, true);
-    addBox(6, WALL_H, -6, 12, 0.1, 6, CEIL_MAT, false, true);
+    // --- Plafond ---
+    box(0, H, 0, 14, FH, 10, M.ceiling, false, 'ceil_g');
 
-    // --- Murs Salon (12x12, centre 6,6) ---
-    addBox(0, WALL_H/2, 0, WALL_THICK, WALL_H, 12, WALL_MAT, true, true);   // Mur gauche salon
-    addBox(12, WALL_H/2, 0, WALL_THICK, WALL_H, 12, WALL_MAT, true, true);  // Mur droit salon
-    addBox(6, WALL_H/2, 12, 12, WALL_H, WALL_THICK, WALL_MAT, true, true);  // Mur arriere
-    addBox(6, WALL_H/2, 0, 4, WALL_H, WALL_THICK, WALL_MAT2, true, true);   // Mur avant gauche (entree)
-    addBox(9.5, WALL_H/2, 0, 5, WALL_H, WALL_THICK, WALL_MAT2, true, true); // Mur avant droite
-    addBox(6, WALL_H*0.75, 0, 3, WALL_H*0.5, WALL_THICK, WOOD_MAT, true, true); // au-dessus de la porte
+    // === MURS EXTERIEURS ===
 
-    addCollider(0, WALL_H/2, 0, WALL_THICK, WALL_H, 12);
-    addCollider(12, WALL_H/2, 0, WALL_THICK, WALL_H, 12);
-    addCollider(6, WALL_H/2, 12, 12, WALL_H, WALL_THICK);
-    addCollider(6, WALL_H*0.75, 0, 3, WALL_H*0.5, WALL_THICK);
-    addCollider(9.5, WALL_H*0.75, 0, 5, WALL_H*0.5, WALL_THICK);
+    // Mur arriere (Z = -5)
+    box(0, H/2, -5, 14, H, W, M.wall, true); wallCollider(0, -5, 14, W);
 
-    // --- Murs Cuisine (8x12, centre -6,6) ---
-    addBox(-10, WALL_H/2, 0, WALL_THICK, WALL_H, 12, WALL_MAT, true, true);
-    addBox(-2, WALL_H/2, 6, WALL_THICK, WALL_H, 12, WALL_MAT, true, true);
-    addBox(-6, WALL_H/2, 12, 8, WALL_H, WALL_THICK, WALL_MAT, true, true);
-    addBox(-6, WALL_H/2, 0, 8, WALL_H, WALL_THICK, WALL_MAT, true, true);
+    // Mur avant gauche (porte entree: X = -1 a 1)
+    box(-4, H/2, 5, 6, H, W, M.wall, true); wallCollider(-4, 5, 6, W);
+    box(4, H/2, 5, 6, H, W, M.wall, true); wallCollider(4, 5, 6, W);
+    // Linteau au-dessus porte
+    box(0, H*0.83, 5, 2, H*0.33, W, M.wall, true); wallCollider(0, 5, 2, W);
 
-    addCollider(-10, WALL_H/2, 0, WALL_THICK, WALL_H, 12);
-    addCollider(-2, WALL_H/2, 6, WALL_THICK, WALL_H, 12);
-    addCollider(-6, WALL_H/2, 12, 8, WALL_H, WALL_THICK);
-    addCollider(-6, WALL_H/2, 0, 8, WALL_H, WALL_THICK);
+    // Mur gauche (X = -7)
+    box(-7, H/2, 0, W, H, 10, M.wall, true); wallCollider(-7, 0, W, 10);
 
-    // Couloir
-    addBox(6, WALL_H/2, -3, WALL_THICK, WALL_H, 6, WALL_MAT2, true, true);
-    addBox(0, WALL_H/2, -3, WALL_THICK, WALL_H, 6, WALL_MAT2, true, true);
+    // Mur droit (X = 7)
+    box(7, H/2, 0, W, H, 10, M.wall, true); wallCollider(7, 0, W, 10);
 
-    addCollider(6, WALL_H/2, -3, WALL_THICK, WALL_H, 6);
-    addCollider(0, WALL_H/2, -3, WALL_THICK, WALL_H, 6);
+    // === MURS INTERIEURS ===
 
-    // Salle de bain
-    addBox(-2, WALL_H/2, -4, WALL_THICK, WALL_H, 8, createMaterial(0x35404a), true, true);
-    addBox(-10, WALL_H/2, -4, WALL_THICK, WALL_H, 8, WALL_MAT, true, true);
-    addBox(-6, WALL_H/2, -8, 8, WALL_H, WALL_THICK, WALL_MAT, true, true);
+    // Mur central vertical X=0, Z=-5 a Z=-1.2 (avec porte a Z=-2.5)
+    box(0, H/2, -3.1, W, H, 3.8, M.wall2, true); wallCollider(0, -3.1, W, 3.8);
 
-    addCollider(-2, WALL_H/2, -4, WALL_THICK, WALL_H, 8);
-    addCollider(-10, WALL_H/2, -4, WALL_THICK, WALL_H, 8);
-    addCollider(-6, WALL_H/2, -8, 8, WALL_H, WALL_THICK);
+    // Mur central vertical X=0, Z=1.2 a Z=5 (avec porte a Z=2.5)
+    box(0, H/2, 3.1, W, H, 3.8, M.wall2, true); wallCollider(0, 3.1, W, 3.8);
 
-    // --- Escalier bas (vers sous-sol) ---
-    addBox(-2, -1.5, 8, 2.5, 3, 3, DARK_MAT, false, false, 'stairs_down');
-    for (let i = 0; i < 6; i++) {
-        addBox(-2, -i*0.5 - 0.25, 7 + i*0.5, 2.2, 0.2, 0.5, WOOD_MAT, true, true);
+    // Mur central horizontal Z=0, X=-7 a X=-1.5 (avec porte a X=-4)
+    box(-4.25, H/2, 0, 5.5, H, W, M.wall2, true); wallCollider(-4.25, 0, 5.5, W);
+
+    // Mur central horizontal Z=0, X=1.5 a X=7 (avec porte a X=4)
+    box(4.25, H/2, 0, 5.5, H, W, M.wall2, true); wallCollider(4.25, 0, 5.5, W);
+
+    // === PORTES ===
+    createDoor(0, H/2, 5, 2, 2.4, 'door_front',  M.wood, { name: 'Porte d\'entree', required: 'final_key' });
+    createDoor(0, H/2, -2.5, 1.2, 2.4, 'door_back_inner', M.woodDark, null);
+    createDoor(0, H/2, 2.5, 1.2, 2.4, 'door_front_inner', M.woodDark, null);
+    createDoor(-4, H/2, 0, 1.2, 2.4, 'door_left_inner', M.woodDark, null);
+    createDoor(4, H/2, 0, 1.2, 2.4, 'door_right_inner', M.woodDark, null);
+
+    // Porte cave (sous le sol, accessible par escalier)
+    createDoor(-5.5, H/2, 0, 1.2, 2.4, 'door_cellar', M.wood, { name: 'Porte de la cave', required: 'cellar_key' });
+
+    // === ESCALIERS ===
+    // Escalier vers etage (coin droite-avant)
+    for (let i = 0; i < 7; i++) {
+        box(5.5, i * (H/7), 3.5 - i * 0.4, 1.8, 0.15, 0.45, M.wood, true);
     }
+    addCol(5.5, H/2, 2, 1.8, H, 3.5);
 
-    // Porte de la cave
-    createDoor(-6, WALL_H/2, 0, 1.2, 2.4, 0.1, 'door_cellar', WOOD_MAT, CONFIG.DOORS.CELLAR);
-
-    // --- Escalier haut (vers etage) ---
-    addBox(10, 1.5, -5, 2.5, 3, 3, DARK_MAT, false, false, 'stairs_up');
-    for (let i = 0; i < 6; i++) {
-        addBox(10, i*0.5 + 0.25, -7 + i*0.5, 2.2, 0.2, 0.5, WOOD_MAT, true, true);
+    // Escalier vers sous-sol (coin gauche-arriere)
+    for (let i = 0; i < 7; i++) {
+        box(-5.5, -i * (H/7), -3.5 + i * 0.4, 1.8, 0.15, 0.45, M.woodDark, true);
     }
+    addCol(-5.5, H/2, -2, 1.8, H, 3.5);
 
-    // --- MEUBLES REZ-DE-CHausSEE ---
-    // Canape salon
-    addBox(9, 0.4, 9, 3, 0.8, 1.2, createMaterial(0x5a2222), true, true, 'furniture');
-    addCollider(9, 0.4, 9, 3, 0.8, 1.2);
-    // Table salon
-    addBox(6, 0.4, 6, 1.5, 0.05, 0.8, WOOD_MAT, true, true, 'furniture');
-    addBox(6, 0.2, 6, 0.1, 0.4, 0.1, WOOD_MAT, true, false);
-    addBox(6.6, 0.2, 6.3, 0.1, 0.4, 0.1, WOOD_MAT, true, false);
-    addCollider(6, 0.4, 6, 1.5, 0.8, 0.8);
-    // Etagere salon
-    addBox(11.3, 1, 6, 0.4, 2, 3, WOOD_MAT, true, true, 'furniture');
-    addCollider(11.3, 1, 6, 0.4, 2, 3);
+    // ==================================================
+    // ETAGE (y = 3)
+    // ==================================================
+    const FY = 3;
 
-    // Cuisine - Plan de travail
-    addBox(-9, 0.45, 9, 1.5, 0.9, 0.6, createMaterial(0x555555), true, true, 'furniture');
-    addCollider(-9, 0.45, 9, 1.5, 0.9, 0.6);
-    addBox(-9, 0.45, 6, 1.5, 0.9, 0.6, createMaterial(0x555555), true, true, 'furniture');
-    addCollider(-9, 0.45, 6, 1.5, 0.9, 0.6);
-    // Table cuisine
-    addBox(-6, 0.4, 7, 1.8, 0.05, 1, WOOD_MAT, true, true, 'furniture');
-    addCollider(-6, 0.4, 7, 1.8, 0.8, 1);
+    // Sol
+    box(0, FY, 0, 14, FH, 10, M.floorUp, false, 'floor_u');
 
-    // Salle de bain - Baignoire
-    addBox(-7, 0.4, -6, 1.5, 0.8, 2.5, createMaterial(0xdddddd), true, true, 'furniture');
-    addCollider(-7, 0.4, -6, 1.5, 0.8, 2.5);
+    // Plafond
+    box(0, FY + H, 0, 14, FH, 10, M.ceiling, false, 'ceil_u');
 
-    // ========================
-    // ETAGE (y=3)
-    // ========================
-    const F1 = 3;
+    // Murs exterieurs etage (meme empreinte)
+    box(0, FY + H/2, -5, 14, H, W, M.wall, true); wallCollider(0, -5, 14, W);
+    box(0, FY + H/2, 5, 14, H, W, M.wall, true); wallCollider(0, 5, 14, W);
+    box(-7, FY + H/2, 0, W, H, 10, M.wall, true); wallCollider(-7, 0, W, 10);
+    box(7, FY + H/2, 0, W, H, 10, M.wall, true); wallCollider(7, 0, W, 10);
 
-    // Sol etage
-    addBox(6, F1+0.02, -6, 12, 0.04, 6, CARPET_MAT, false, true);
-    addBox(6, F1+0.02, -12, 12, 0.04, 6, createMaterial(0x3a3020), false, true);
-    addBox(-2, F1+0.02, -9, 6, 0.04, 6, FLOOR_MAT, false, true);
+    // Murs interieurs etage
+    // Separation chambres (X=0)
+    box(0, FY + H/2, -3, W, H, 4, M.wall2, true); wallCollider(0, -3, W, 4);
+    box(0, FY + H/2, 3, W, H, 4, M.wall2, true); wallCollider(0, 3, W, 4);
 
-    // Plafond etage
-    addBox(6, F1+WALL_H, -9, 18, 0.1, 12, CEIL_MAT, false, true);
+    // Couloir arriere (Z=-1.5 a Z=1.5, X=-7 a X=7)
+    // Mur couloir gauche arriere
+    box(-3, FY + H/2, -1, W, H, 4, M.wall2, true); wallCollider(-3, -1, W, 4);
+    // Mur couloir droit arriere
+    box(3, FY + H/2, -1, W, H, 4, M.wall2, true); wallCollider(3, -1, W, 4);
 
-    // Murs etage
-    addBox(-3, F1+WALL_H/2, -9, WALL_THICK, WALL_H, 12, WALL_MAT, true, true);
-    addBox(12, F1+WALL_H/2, -9, WALL_THICK, WALL_H, 12, WALL_MAT, true, true);
-    addBox(6, F1+WALL_H/2, -3, 18, WALL_H, WALL_THICK, WALL_MAT, true, true);
-    addBox(6, F1+WALL_H/2, -15, 18, WALL_H, WALL_THICK, WALL_MAT, true, true);
+    // Portes etage
+    createDoor(0, FY + H/2, -2, 1.2, 2.4, 'door_bed1', M.wood, { name: 'Chambre 1', required: 'bedroom_key' });
+    createDoor(0, FY + H/2, 2, 1.2, 2.4, 'door_bed2', M.woodDark, null);
 
-    addCollider(-3, F1+WALL_H/2, -9, WALL_THICK, WALL_H, 12);
-    addCollider(12, F1+WALL_H/2, -9, WALL_THICK, WALL_H, 12);
-    addCollider(6, F1+WALL_H/2, -3, 18, WALL_H, WALL_THICK);
-    addCollider(6, F1+WALL_H/2, -15, 18, WALL_H, WALL_THICK);
-
-    // Murs internes etage
-    addBox(4, F1+WALL_H/2, -9, WALL_THICK, WALL_H, 6, WALL_MAT2, true, true);
-    addCollider(4, F1+WALL_H/2, -9, WALL_THICK, WALL_H, 6);
-
-    // Porte chambre 1
-    createDoor(4, F1+WALL_H/2, -6.5, 1.2, 2.4, 0.1, 'door_bedroom', WOOD_MAT, CONFIG.DOORS.BEDROOM);
-
-    // Meubles etage
-    // Lit chambre 1
-    addBox(1, F1+0.3, -12, 2, 0.6, 1.2, createMaterial(0x4a2a1a), true, true, 'bed1');
-    addCollider(1, F1+0.3, -12, 2, 0.6, 1.2);
-    hidingSpots.push({ x: 1, y: F1, z: -12, type: 'bed', label: 'Se cacher sous le lit' });
-
-    // Lit chambre 2
-    addBox(9, F1+0.3, -12, 2, 0.6, 1.2, createMaterial(0x4a2a1a), true, true, 'bed2');
-    addCollider(9, F1+0.3, -12, 2, 0.6, 1.2);
-    hidingSpots.push({ x: 9, y: F1, z: -12, type: 'bed', label: 'Se cacher sous le lit' });
-
-    // Armoire
-    addBox(3, F1+1, -14, 1.2, 2, 0.6, createMaterial(0x3a2510), true, true, 'closet1');
-    addCollider(3, F1+1, -14, 1.2, 2, 0.6);
-    hidingSpots.push({ x: 3, y: F1, z: -13.5, type: 'closet', label: 'Se cacher dans l\'armoire' });
-
-    // Armoire 2
-    addBox(10, F1+1, -14, 1.2, 2, 0.6, createMaterial(0x3a2510), true, true, 'closet2');
-    addCollider(10, F1+1, -14, 1.2, 2, 0.6);
-    hidingSpots.push({ x: 10, y: F1, z: -13.5, type: 'closet', label: 'Se cacher dans l\'armoire' });
-
-    // ========================
-    // SOUS-SOL (y=-3)
-    // ========================
+    // ==================================================
+    // SOUS-SOL (y = -3)
+    // ==================================================
     const FB = -3;
 
-    // Sol sous-sol
-    addBox(-6, FB+0.02, 9, 12, 0.04, 8, createMaterial(0x222220), false, true);
+    // Sol
+    box(0, FB, 0, 14, FH, 10, M.stone, false, 'floor_b');
 
-    // Murs sous-sol
-    addBox(-12, FB+WALL_H/2, 9, WALL_THICK, WALL_H, 8, createMaterial(0x2a2520), true, true);
-    addBox(0, FB+WALL_H/2, 9, WALL_THICK, WALL_H, 8, createMaterial(0x2a2520), true, true);
-    addBox(-6, FB+WALL_H/2, 5, 12, WALL_H, WALL_THICK, createMaterial(0x2a2520), true, true);
-    addBox(-6, FB+WALL_H/2, 13, 12, WALL_H, WALL_THICK, createMaterial(0x2a2520), true, true);
+    // Plafond (dessous du RDC)
+    box(0, FB + H, 0, 14, FH, 10, M.dark, false, 'ceil_b');
 
-    addCollider(-12, FB+WALL_H/2, 9, WALL_THICK, WALL_H, 8);
-    addCollider(0, FB+WALL_H/2, 9, WALL_THICK, WALL_H, 8);
-    addCollider(-6, FB+WALL_H/2, 5, 12, WALL_H, WALL_THICK);
-    addCollider(-6, FB+WALL_H/2, 13, 12, WALL_H, WALL_THICK);
+    // Murs exterieurs sous-sol
+    box(0, FB + H/2, -5, 14, H, W, M.stone, true); wallCollider(0, -5, 14, W);
+    box(0, FB + H/2, 5, 14, H, W, M.stone, true); wallCollider(0, 5, 14, W);
+    box(-7, FB + H/2, 0, W, H, 10, M.stone, true); wallCollider(-7, 0, W, 10);
+    box(7, FB + H/2, 0, W, H, 10, M.stone, true); wallCollider(7, 0, W, 10);
 
-    // Plafond sous-sol
-    addBox(-6, FB+WALL_H, 9, 12, 0.1, 8, createMaterial(0x1a1510), false, true);
+    // Mur central sous-sol (X=0)
+    box(0, FB + H/2, 0, W, H, 10, M.stone, true); wallCollider(0, 0, W, 10);
+
+    // Porte sous-sol
+    createDoor(0, FB + H/2, 2, 1.2, 2.4, 'door_basement', M.metal, { name: 'Porte sous-sol', required: 'basement_key' });
+
+    // ==================================================
+    // ECLAIRAGE
+    // ==================================================
+
+    // Ambient tres faible
+    scene.add(new THREE.AmbientLight(0x181520, 0.4));
+
+    // Lumieres par piece - REZ-DE-CHausSEE
+    addLight(-3.5, 2.7, 2.5, 0xffaa66, 0.6, 10);  // Salon
+    addLight(3.5, 2.7, 2.5, 0xffcc88, 0.5, 9);     // Cuisine
+    addLight(-3.5, 2.7, -2.5, 0xffaa66, 0.4, 8);   // SdB
+    addLight(3.5, 2.7, -2.5, 0xffaa88, 0.4, 8);    // Rangement
+    addLight(0, 2.7, 0, 0xffddaa, 0.3, 6);          // Couloir
+
+    // ETAGE
+    addLight(-3.5, FY + 2.7, 2.5, 0xffaa66, 0.4, 8);  // Chambre 1
+    addLight(3.5, FY + 2.7, 2.5, 0xffaa88, 0.4, 8);   // Chambre 2
+    addLight(0, FY + 2.7, -2, 0xffccaa, 0.3, 6);       // Couloir etage
+
+    // SOUS-SOL
+    addLight(-3.5, FB + 2.7, 0, 0xaabbee, 0.25, 7);   // Stockage
+    addLight(3.5, FB + 2.7, 0, 0x88aacc, 0.2, 6);     // Generateur
+
+    // Lumiere lune (exterieur)
+    const moon = new THREE.DirectionalLight(0x334466, 0.2);
+    moon.position.set(-15, 25, -10);
+    moon.castShadow = true;
+    moon.shadow.mapSize.set(1024, 1024);
+    const sc = moon.shadow.camera;
+    sc.near = 1; sc.far = 60; sc.left = -20; sc.right = 20; sc.top = 20; sc.bottom = -20;
+    scene.add(moon);
+
+    // ==================================================
+    // SOL EXTERIEUR
+    // ==================================================
+    box(0, -0.05, 0, 50, 0.1, 50, mat(0x1a1a10), false, 'ground_out');
+
+    // ==================================================
+    // MEUBLES
+    // ==================================================
+    buildFurniture();
+}
+
+function addLight(x, y, z, color, intensity, dist) {
+    const l = new THREE.PointLight(color, intensity, dist);
+    l.position.set(x, y, z);
+    scene.add(l);
+}
+
+// ============================================
+// 7. MEUBLES
+// ============================================
+function buildFurniture() {
+    const Y = 0;
+    const FY = 3;
+    const BY = -3;
+
+    // ---- SALON (X:-7 a 0, Z:0 a 5) ----
+    // Canape (long, face mur arriere)
+    box(-3.5, 0.35, 4.2, 3, 0.7, 0.9, mat(0x5a2020), true);
+    addCol(-3.5, 0.35, 4.2, 3, 0.7, 0.9);
+    // Accoudoirs
+    box(-5, 0.55, 4.2, 0.3, 0.5, 0.9, mat(0x4a1818), true);
+    box(-2, 0.55, 4.2, 0.3, 0.5, 0.9, mat(0x4a1818), true);
+
+    // Table basse
+    box(-3.5, 0.3, 2.5, 1.4, 0.06, 0.7, M.wood, true);
+    cyl(-4.1, 0.15, 2.2, 0.04, 0.04, 0.3, 8, M.wood, false);
+    cyl(-2.9, 0.15, 2.2, 0.04, 0.04, 0.3, 8, M.wood, false);
+    cyl(-4.1, 0.15, 2.8, 0.04, 0.04, 0.3, 8, M.wood, false);
+    cyl(-2.9, 0.15, 2.8, 0.04, 0.04, 0.3, 8, M.wood, false);
+
+    // Etagere mur gauche
+    box(-6.7, 1.2, 2, 0.35, 2, 2.5, M.woodDark, true);
+    addCol(-6.7, 1.2, 2, 0.35, 2, 2.5);
+
+    // Lampe sol (coin)
+    cyl(-6.5, 0.7, 4.5, 0.08, 0.12, 1.4, 8, M.metal, true);
+    box(-6.5, 1.5, 4.5, 0.4, 0.3, 0.4, mat(0xddcc88), true);
+    addLight(-6.5, 1.8, 4.5, 0xffcc88, 0.3, 4);
+
+    // ---- CUISINE (X:0 a 7, Z:0 a 5) ----
+    // Plan de travail haut droit
+    box(5.5, 0.45, 4.2, 2.5, 0.9, 0.65, M.metal, true);
+    addCol(5.5, 0.45, 4.2, 2.5, 0.9, 0.65);
+
+    // Plan de travail arriere
+    box(5.5, 0.45, 1.5, 2.5, 0.9, 0.65, M.metal, true);
+    addCol(5.5, 0.45, 1.5, 2.5, 0.9, 0.65);
+
+    // Table cuisine
+    box(3, 0.4, 3, 1.6, 0.06, 0.9, M.wood, true);
+    cyl(2.5, 0.2, 2.7, 0.04, 0.04, 0.4, 8, M.wood, false);
+    cyl(3.5, 0.2, 2.7, 0.04, 0.04, 0.4, 8, M.wood, false);
+    cyl(2.5, 0.2, 3.3, 0.04, 0.04, 0.4, 8, M.wood, false);
+    cyl(3.5, 0.2, 3.3, 0.04, 0.04, 0.4, 8, M.wood, false);
+
+    // Chaises
+    box(2.2, 0.25, 3, 0.4, 0.5, 0.4, M.woodDark, true);
+    box(3.8, 0.25, 3, 0.4, 0.5, 0.4, M.woodDark, true);
+
+    // ---- SALLE DE BAIN (X:-7 a 0, Z:-5 a 0) ----
+    // Baignoire
+    box(-3, 0.4, -3.5, 1.8, 0.8, 2.5, mat(0xdddddd), true);
+    addCol(-3, 0.4, -3.5, 1.8, 0.8, 2.5);
+    // Interior baignoire (plus sombre)
+    box(-3, 0.4, -3.5, 1.5, 0.7, 2.2, mat(0xbbbbbb), false);
+
+    // Lavabo
+    box(-6, 0.7, -1.5, 0.6, 0.15, 0.5, mat(0xeeeeee), true);
+    cyl(-6, 0.45, -1.5, 0.25, 0.3, 0.5, 8, mat(0xdddddd), true);
+    addCol(-6, 0.7, -1.5, 0.6, 1, 0.5);
+
+    // ---- RANGEMENT (X:0 a 7, Z:-5 a 0) ----
+    // Grande armoire
+    box(5, 1, -4, 1.5, 2, 0.7, M.woodDark, true);
+    addCol(5, 1, -4, 1.5, 2, 0.7);
+
+    // Etagere murale
+    box(6.7, 1.5, -2.5, 0.3, 0.1, 2, M.wood, true);
+
+    // Coffre
+    box(2, 0.35, -4, 0.8, 0.7, 0.5, M.woodDark, true);
+    addCol(2, 0.35, -4, 0.8, 0.7, 0.5);
+    addInteract(2, 0.5, -4, 2.5, { type: 'container', label: 'Ouvrir le coffre [E]' });
+
+    // ---- CHAMBRE 1 ETAGE (X:-7 a 0, Z:0 a 5, Y:3) ----
+    const FY = 3;
+
+    // Lit
+    box(-3.5, FY + 0.3, 3.5, 2, 0.6, 1.2, mat(0x5a3020), true);
+    addCol(-3.5, FY + 0.3, 3.5, 2, 0.6, 1.2);
+    // Oreiller
+    box(-3.5, FY + 0.65, 4, 0.6, 0.12, 0.35, mat(0xddddcc), true);
+    // Tete de lit
+    box(-3.5, FY + 0.8, 2.8, 2, 0.8, 0.15, M.woodDark, true);
+
+    hideSpots.push({ x: -3.5, y: FY, z: 3.5, type: 'bed', label: 'Se cacher sous le lit [H]' });
+
+    // Table de nuit
+    box(-5.5, FY + 0.35, 3.5, 0.5, 0.7, 0.4, M.wood, true);
+    addCol(-5.5, FY + 0.35, 3.5, 0.5, 0.7, 0.4);
+    // Lampe
+    cyl(-5.5, FY + 0.85, 3.5, 0.05, 0.08, 0.3, 8, M.metal, true);
+    box(-5.5, FY + 1.05, 3.5, 0.2, 0.18, 0.2, mat(0xddaa66), true);
+    addLight(-5.5, FY + 1.2, 3.5, 0xffcc88, 0.25, 3);
+
+    // Armoire
+    box(-1, FY + 1, 4.5, 1, 2, 0.6, M.woodDark, true);
+    addCol(-1, FY + 1, 4.5, 1, 2, 0.6);
+    hideSpots.push({ x: -1, y: FY, z: 4.2, type: 'closet', label: 'Se cacher dans l\'armoire [H]' });
+
+    // ---- CHAMBRE 2 ETAGE (X:0 a 7, Z:0 a 5, Y:3) ----
+    // Lit
+    box(3.5, FY + 0.3, 3.5, 2, 0.6, 1.2, mat(0x5a3020), true);
+    addCol(3.5, FY + 0.3, 3.5, 2, 0.6, 1.2);
+    box(3.5, FY + 0.65, 4, 0.6, 0.12, 0.35, mat(0xddddcc), true);
+    box(3.5, FY + 0.8, 2.8, 2, 0.8, 0.15, M.woodDark, true);
+
+    hideSpots.push({ x: 3.5, y: FY, z: 3.5, type: 'bed', label: 'Se cacher sous le lit [H]' });
+
+    // Bureau
+    box(6, FY + 0.4, 1.5, 1.2, 0.06, 0.7, M.wood, true);
+    addCol(6, FY + 0.4, 1.5, 1.2, 0.8, 0.7);
+
+    // Armoire
+    box(1, FY + 1, 4.5, 1, 2, 0.6, M.woodDark, true);
+    addCol(1, FY + 1, 4.5, 1, 2, 0.6);
+    hideSpots.push({ x: 1, y: FY, z: 4.2, type: 'closet', label: 'Se cacher dans l\'armoire [H]' });
+
+    // ---- COULOIR ETAGE (Z:-5 a 0) ----
+    box(-1, FY + 1.2, -2.5, 0.4, 0.08, 1.5, M.wood, true);
+
+    // ---- SOUS-SOL ----
+    const BY = -3;
 
     // Generateur
-    addBox(-4, FB+0.6, 11, 1.5, 1.2, 1, createMaterial(0x444444), true, true, 'generator');
-    addCollider(-4, FB+0.6, 11, 1.5, 1.2, 1);
-    addInteractable(-4, FB+0.8, 11, 3, { type: 'generator', label: 'Reparer le generateur' });
+    box(4, BY + 0.7, 0, 1.5, 1.4, 1.2, M.metal, true);
+    addCol(4, BY + 0.7, 0, 1.5, 1.4, 1.2);
+    // Detail generateur
+    cyl(4, BY + 1.5, 0, 0.15, 0.15, 0.4, 8, M.metal, true);
+    addInteract(4, BY + 0.8, 0, 3, { type: 'generator', label: 'Reparer le generateur [E]' });
 
-    // Coffre sous-sol
-    addBox(-8, FB+0.4, 7, 1, 0.8, 0.6, createMaterial(0x6a4a1a), true, true, 'chest_bs');
-    addCollider(-8, FB+0.4, 7, 1, 0.8, 0.6);
+    // Caisses stockage
+    box(-4, BY + 0.4, 2, 0.8, 0.8, 0.8, M.wood, true);
+    addCol(-4, BY + 0.4, 2, 0.8, 0.8, 0.8);
+    box(-3, BY + 0.4, 2.5, 0.7, 0.7, 0.7, M.woodDark, true);
+    addCol(-3, BY + 0.4, 2.5, 0.7, 0.7, 0.7);
+    box(-3.5, BY + 1.0, 2.2, 0.6, 0.6, 0.6, M.wood, true);
 
-    // ========================
-    // EXTERIEUR - Porte principale
-    // ========================
-    addBox(8, WALL_H/2, 0, 2, WALL_H, 0.3, createMaterial(0x5a3a1a), true, true, 'front_door_ext');
-    createDoor(8, WALL_H/2, 0, 1.2, 2.4, 0.15, 'door_front', createMaterial(0x5a3a1a), CONFIG.DOORS.FRONT);
-
-    // Escalier exterieur
-    for (let i = 0; i < 3; i++) {
-        addBox(8, -i*0.3 - 0.15, 0.5 + i*0.4, 3, 0.25, 0.5, createMaterial(0x666660), false, true);
-    }
-
-    // Illumination de base
-    const ambientLight = new THREE.AmbientLight(0x111118, 0.3);
-    scene.add(ambientLight);
-
-    // Lumieres de la maison (tres faibles)
-    const roomLights = [
-        { pos: [6, 2.7, 6], color: 0xffaa66, intensity: 0.4, dist: 8 },
-        { pos: [-6, 2.7, 6], color: 0xffcc88, intensity: 0.3, dist: 7 },
-        { pos: [6, 2.7, -6], color: 0xffaa66, intensity: 0.2, dist: 6 },
-        { pos: [6, 5.7, -9], color: 0xffaa66, intensity: 0.2, dist: 7 },
-        { pos: [-6, -0.3, 9], color: 0xaaaaff, intensity: 0.15, dist: 5 },
-    ];
-    roomLights.forEach(l => {
-        const pl = new THREE.PointLight(l.color, l.intensity, l.dist);
-        pl.position.set(...l.pos);
-        pl.castShadow = false;
-        scene.add(pl);
-    });
-
-    // Directional light faible (lune)
-    const moonLight = new THREE.DirectionalLight(0x223355, 0.15);
-    moonLight.position.set(-10, 20, -10);
-    moonLight.castShadow = true;
-    moonLight.shadow.mapSize.set(1024, 1024);
-    moonLight.shadow.camera.near = 1;
-    moonLight.shadow.camera.far = 50;
-    moonLight.shadow.camera.left = -20;
-    moonLight.shadow.camera.right = 20;
-    moonLight.shadow.camera.top = 20;
-    moonLight.shadow.camera.bottom = -20;
-    scene.add(moonLight);
+    // Etagere sous-sol
+    box(-6.7, BY + 1, -2, 0.3, 2, 3, M.woodDark, true);
+    addCol(-6.7, BY + 1, -2, 0.3, 2, 3);
 }
 
 // ============================================
-// SECTION 6: PORTES
+// 8. PORTES
 // ============================================
-function createDoor(x, y, z, w, h, d, id, material, config) {
-    const doorMesh = addBox(x, y, z, w, h, d, material, true, true, id);
-    const doorData = {
-        mesh: doorMesh,
-        id: id,
-        config: config,
-        open: false,
-        locked: true,
-        originalPos: { x, y, z },
-    };
-    doorObjects.push(doorData);
-
-    addCollider(x, y, z, w, h, d);
-    addInteractable(x, y, z, 3, { type: 'door', doorId: id, label: config.name + ' [E]' });
-    return doorMesh;
+function createDoor(x, y, z, w, h, id, material, config) {
+    const mesh = box(x, y, z, w, h, 0.12, material, true, id);
+    const door = { mesh, id, config, open: false, locked: !!config, origY: y, h };
+    doorObjects.push(door);
+    addCol(x, y, z, w, h, 0.2);
+    addInteract(x, y, z, 3, { type: 'door', doorId: id, label: config ? config.name + ' [E]' : 'Porte [E]' });
+    return mesh;
 }
 
-function toggleDoor(doorId) {
-    const door = doorObjects.find(d => d.id === doorId);
-    if (!door) return false;
+function toggleDoor(id) {
+    const door = doorObjects.find(d => d.id === id);
+    if (!door) return;
 
     if (door.locked) {
-        const playerHasRequired = player.inventory.includes(door.config.required);
-        if (playerHasRequired) {
+        const playerKey = playerInv.find(k => k === door.config.required);
+        if (playerKey) {
             door.locked = false;
-            audio.doorOpen();
-            notify('Porte debloquee : ' + door.config.name, 'success');
-            gameState.doorsOpened.push(doorId);
+            removeFromInv(door.config.required);
+            notify('Debloquee : ' + door.config.name, 'success');
         } else {
-            audio.doorLocked();
-            notify('Verrouillee. Il faut : ' + door.config.name.replace('Porte du ', '').replace('Porte de la ', ''), 'warning');
-            return false;
+            SFX.lock();
+            notify('Verrouillee ! Il faut : ' + (door.config.required.replace('_key', '').replace('_', ' ')), 'warning');
+            return;
         }
     }
 
     door.open = !door.open;
-    if (door.open) {
-        door.mesh.position.y = door.originalPos.y + door.mesh.geometry.parameters.height;
-        removeColliderAt(door.originalPos.x, door.originalPos.y, door.originalPos.z);
-    } else {
-        door.mesh.position.y = door.originalPos.y;
-        addCollider(door.originalPos.x, door.originalPos.y, door.originalPos.z,
-            door.mesh.geometry.parameters.width, door.mesh.geometry.parameters.height, door.mesh.geometry.parameters.depth);
-    }
-    audio.doorOpen();
-    enemyOnNoise(door.open ? 6 : 4, door.originalPos.x, door.originalPos.z);
-    return true;
-}
+    door.mesh.position.y = door.open ? door.origY + door.h + 0.1 : door.origY;
+    SFX.door();
 
-function removeColliderAt(x, y, z) {
-    colliders = colliders.filter(c => !(Math.abs((c.min.x+c.max.x)/2 - x) < 0.5 && Math.abs((c.min.z+c.max.z)/2 - z) < 0.5));
+    if (!door.open) {
+        addCol(door.mesh.position.x, door.origY, door.mesh.position.z, door.mesh.geometry.parameters.width, door.h, 0.2);
+    } else {
+        const cx = door.mesh.position.x;
+        const cz = door.mesh.position.z;
+        colliders = colliders.filter(c => {
+            const mx = (c.minX + c.maxX) / 2;
+            const mz = (c.minZ + c.maxZ) / 2;
+            return !(Math.abs(mx - cx) < 1 && Math.abs(mz - cz) < 1 && c.maxY > 1);
+        });
+    }
+
+    enemyNoise(door.open ? 5 : 3, door.mesh.position.x, door.mesh.position.z);
 }
 
 // ============================================
-// SECTION 7: ITEMS
+// 9. ITEMS
 // ============================================
 function spawnItems() {
-    const itemDefs = Object.values(CONFIG.ITEMS);
-    const spawnPoints = [
-        { x: 9, y: 0.5, z: 9 },     // Salon - canape
-        { x: 11, y: 1.5, z: 6 },     // Salon - etagere
-        { x: -9, y: 1.2, z: 8 },     // Cuisine - plan
-        { x: -6, y: 0.8, z: 7 },     // Cuisine - table
-        { x: -7, y: 0.8, z: -5 },    // SdB - baignoire
-        { x: 1, y: 3.5, z: -12 },    // Chambre 1 - lit
-        { x: 9, y: 3.5, z: -12 },    // Chambre 2 - lit
-        { x: 7, y: 3.5, z: -9 },     // Etage couloir
-        { x: -4, y: -2.4, z: 11 },   // Sous-sol generateur
-        { x: -8, y: -2.4, z: 7 },    // Sous-sol coffre
-        { x: -2, y: 0.5, z: 8 },     // Pres escalier bas
-        { x: 10, y: 0.5, z: -5 },    // Pres escalier haut
-        { x: 3, y: 3.5, z: -14 },    // Etage armoire
-        { x: 10, y: 3.5, z: -14 },   // Etage armoire 2
+    const defs = Object.entries(CFG.ITEM_DEFS);
+    const spots = [
+        // Ground floor
+        [-3.5, 0.6, 2.5],   // Table basse salon
+        [-6.5, 2.2, 2],     // Etagere salon
+        [5.5, 1.0, 4.2],    // Plan cuisine
+        [3, 0.6, 3],        // Table cuisine
+        [-3, 1.0, -3.5],    // Baignoire
+        [2, 0.7, -4],       // Coffre rangement
+        // Upstairs
+        [-5.5, FY + 0.9, 3.5], // Table nuit chambre 1
+        [-1, FY + 1.5, 4.5],   // Armoire chambre 1
+        [6, FY + 0.5, 1.5],    // Bureau chambre 2
+        [1, FY + 1.5, 4.5],    // Armoire chambre 2
+        // Basement
+        [4, BY + 1.0, 0],      // Pres generateur
+        [-4, BY + 1.0, 2],     // Caisses
     ];
+    const FY = 3, BY = -3;
 
-    // Shuffle spawn points
-    for (let i = spawnPoints.length - 1; i > 0; i--) {
+    // Shuffle spots
+    for (let i = spots.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [spawnPoints[i], spawnPoints[j]] = [spawnPoints[j], spawnPoints[i]];
+        [spots[i], spots[j]] = [spots[j], spots[i]];
     }
 
-    // Always spawn these critical items
-    const criticalItems = ['cellar_key', 'bedroom_key', 'basement_key', 'final_key', 'gen_part1', 'gen_part2', 'wire_cutter'];
-    const otherItems = itemDefs.filter(d => !criticalItems.includes(d.id));
+    // Always spawn critical items first
+    const critical = ['cellar_key', 'bedroom_key', 'basement_key', 'final_key', 'gen_part1', 'gen_part2', 'wire_cutter'];
+    const others = defs.filter(([id]) => !critical.includes(id));
 
-    let spawnIdx = 0;
-    criticalItems.forEach(def => {
-        if (spawnIdx >= spawnPoints.length) spawnIdx = 0;
-        const sp = spawnPoints[spawnIdx++];
-        createItem(sp.x, sp.y, sp.z, def);
+    let idx = 0;
+    critical.forEach(([id, def]) => {
+        if (idx < spots.length) {
+            const [x, y, z] = spots[idx++];
+            spawnItem(x, y, z, id, def);
+        }
     });
 
-    // Spawn some random other items
-    const extraCount = Math.min(4, otherItems.length, spawnPoints.length - spawnIdx);
-    const shuffled = otherItems.sort(() => Math.random() - 0.5);
-    for (let i = 0; i < extraCount; i++) {
-        if (spawnIdx >= spawnPoints.length) break;
-        const sp = spawnPoints[spawnIdx++];
-        createItem(sp.x, sp.y, sp.z, shuffled[i]);
+    // Random extras
+    const extra = others.sort(() => Math.random() - 0.5).slice(0, 3);
+    extra.forEach(([id, def]) => {
+        if (idx < spots.length) {
+            const [x, y, z] = spots[idx++];
+            spawnItem(x, y, z, id, def);
+        }
+    });
+
+    totalItems = itemObjects.length;
+}
+
+function spawnItem(x, y, z, id, def) {
+    const group = new THREE.Group();
+
+    // Modeles 3D differents selon le type
+    switch (def.shape) {
+        case 'key': {
+            // Cle: manche + tete
+            const handle = new THREE.Mesh(
+                new THREE.BoxGeometry(0.08, 0.18, 0.03),
+                new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.7, roughness: 0.3 })
+            );
+            handle.position.y = 0;
+            group.add(handle);
+            const head = new THREE.Mesh(
+                new THREE.TorusGeometry(0.06, 0.015, 6, 8),
+                new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.7, roughness: 0.3 })
+            );
+            head.position.y = 0.12;
+            group.add(head);
+            const blade = new THREE.Mesh(
+                new THREE.BoxGeometry(0.03, 0.12, 0.02),
+                new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.7, roughness: 0.3 })
+            );
+            blade.position.y = -0.12;
+            group.add(blade);
+            break;
+        }
+        case 'gear': {
+            // Engrenage
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(0.08, 0.02, 6, 12),
+                new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.8, roughness: 0.3 })
+            );
+            group.add(ring);
+            const center = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.03, 0.04, 8),
+                new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.8, roughness: 0.3 })
+            );
+            group.add(center);
+            for (let i = 0; i < 6; i++) {
+                const tooth = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.025, 0.04, 0.02),
+                    new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.8, roughness: 0.3 })
+                );
+                const a = (i / 6) * Math.PI * 2;
+                tooth.position.set(Math.cos(a) * 0.08, 0, Math.sin(a) * 0.08);
+                tooth.rotation.y = a;
+                group.add(tooth);
+            }
+            break;
+        }
+        case 'tool': {
+            // Outil (pied-de-biche / coupe-fil)
+            const handle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.015, 0.02, 0.25, 6),
+                new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 })
+            );
+            handle.rotation.z = Math.PI / 2;
+            group.add(handle);
+            const head = new THREE.Mesh(
+                new THREE.BoxGeometry(0.12, 0.04, 0.03),
+                new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.7, roughness: 0.3 })
+            );
+            head.position.x = 0.15;
+            group.add(head);
+            break;
+        }
+        case 'cylinder': {
+            // Lampe torche
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.025, 0.03, 0.2, 8),
+                new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.5, roughness: 0.4 })
+            );
+            group.add(body);
+            const lens = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.025, 0.04, 8),
+                new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffff88, emissiveIntensity: 0.5 })
+            );
+            lens.position.y = 0.12;
+            group.add(lens);
+            break;
+        }
+        case 'box': {
+            // Trousse de soin
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, 0.1, 0.08),
+                new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.6 })
+            );
+            group.add(body);
+            const cross1 = new THREE.Mesh(
+                new THREE.BoxGeometry(0.06, 0.02, 0.01),
+                new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            cross1.position.z = 0.045;
+            group.add(cross1);
+            const cross2 = new THREE.Mesh(
+                new THREE.BoxGeometry(0.02, 0.06, 0.01),
+                new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            cross2.position.z = 0.045;
+            group.add(cross2);
+            break;
+        }
     }
 
-    gameState.totalItems = itemObjects.length;
+    // Halo lumineux
+    const glow = new THREE.PointLight(def.color, 0.3, 2);
+    glow.position.y = 0.15;
+    group.add(glow);
+
+    group.position.set(x, y, z);
+    scene.add(group);
+
+    const obj = { group, id, def, collected: false };
+    itemObjects.push(obj);
+    addInteract(x, y, z, 2.5, { type: 'item', obj, label: def.icon + ' ' + def.name + ' [E]' });
 }
 
-function createItem(x, y, z, itemDef) {
-    const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    const mat = new THREE.MeshStandardMaterial({
-        color: itemDef.color,
-        emissive: itemDef.color,
-        emissiveIntensity: 0.3,
-        roughness: 0.4,
-        metalness: 0.6,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    scene.add(mesh);
-
-    const itemObj = { mesh, def: itemDef, collected: false, glow: mesh };
-    itemObjects.push(itemObj);
-    addInteractable(x, y, z, 2.5, { type: 'item', itemObj, label: `${itemDef.icon} ${itemDef.name} [E]` });
-}
-
-function collectItem(itemObj) {
-    if (itemObj.collected) return;
-    itemObj.collected = true;
-    scene.remove(itemObj.mesh);
-    player.inventory.push(itemObj.def.id);
-    gameState.itemsCollected++;
-    audio.itemPickup();
-    notify('Trouve : ' + itemObj.def.icon + ' ' + itemObj.def.name, 'success');
-    updateInventoryUI();
+function collectItem(obj) {
+    if (obj.collected) return;
+    obj.collected = true;
+    scene.remove(obj.group);
+    playerInv.push(obj.id);
+    itemsFound++;
+    SFX.pickup();
+    notify('Trouve : ' + obj.def.icon + ' ' + obj.def.name, 'success');
+    updateInvUI();
 }
 
 // ============================================
-// SECTION 8: JOUEUR
+// 10. JOUEUR
 // ============================================
-const player = {
-    position: new THREE.Vector3(8, CONFIG.WORLD.PLAYER_HEIGHT, 2),
-    velocity: new THREE.Vector3(),
-    rotation: { x: 0, y: 0 },
-    onGround: true,
-    stamina: 100,
-    health: 100,
-    crouching: false,
-    sprinting: false,
-    hiding: false,
-    hiddenType: null,
-    inventory: [],
-    selectedSlot: 0,
-    flashlightOn: false,
-    flashlight: null,
-    noiseLevel: 0,
-    footstepTimer: 0,
-};
+const playerInv = [];
+let playerPos = new THREE.Vector3(0, CFG.CAM_H, 4);
+let playerVel = new THREE.Vector3();
+let playerRotX = 0, playerRotY = 0;
+let playerStamina = 100;
+let playerHealth = 100;
+let playerCrouch = false;
+let playerSprint = false;
+let playerHiding = false;
+let playerHideType = null;
+let playerFlashlightOn = false;
+let playerFlashlight = null;
+let playerNoise = 0;
+let footstepCD = 0;
+let selectedSlot = 0;
 
 function initPlayer() {
-    player.position.set(8, CONFIG.WORLD.PLAYER_HEIGHT, 2);
-    player.velocity.set(0, 0, 0);
-    player.rotation.x = 0;
-    player.rotation.y = 0;
-    player.stamina = 100;
-    player.health = 100;
-    player.crouching = false;
-    player.sprinting = false;
-    player.hiding = false;
-    player.inventory = [];
-    player.flashlightOn = false;
+    playerPos.set(0, CFG.CAM_H, 4);
+    playerVel.set(0, 0, 0);
+    playerRotX = 0; playerRotY = 0;
+    playerStamina = 100;
+    playerHealth = 100;
+    playerCrouch = false;
+    playerSprint = false;
+    playerHiding = false;
+    playerFlashlightOn = false;
+    playerInv.length = 0;
 
     // Flashlight
-    if (player.flashlight) scene.remove(player.flashlight);
-    const fl = new THREE.SpotLight(0xffffcc, 1.5, 18, 0.4, 0.6, 1.5);
-    fl.castShadow = false;
-    camera.add(fl);
+    if (playerFlashlight) { scene.remove(playerFlashlight); playerFlashlight = null; }
+    const fl = new THREE.SpotLight(0xffffcc, 1.8, 20, 0.35, 0.5, 1.5);
     fl.position.set(0, 0, 0);
     fl.target.position.set(0, 0, -1);
+    camera.add(fl);
     camera.add(fl.target);
     scene.add(camera);
-    player.flashlight = fl;
-    player.flashlight.visible = false;
+    playerFlashlight = fl;
+    fl.visible = false;
 }
 
 // ============================================
-// SECTION 9: ENNEMI — Machine a etats
+// 11. ENNEMI
 // ============================================
-const ENEMY_STATES = { IDLE: 'idle', PATROL: 'patrol', ALERT: 'alert', CHASE: 'chase', SEARCH: 'search', RETURN: 'return' };
+const EST = { IDLE: 0, PATROL: 1, ALERT: 2, CHASE: 3, SEARCH: 4, RETURN: 5 };
 
 const enemy = {
     mesh: null,
-    body: null,
-    state: ENEMY_STATES.IDLE,
-    position: new THREE.Vector3(-6, 0, 6),
-    targetPos: new THREE.Vector3(),
-    velocity: new THREE.Vector3(),
-    rotation: 0,
-    stateTimer: 0,
-    lastKnownPlayerPos: null,
-    speed: CONFIG.ENEMY.SPEED_PATROL,
-    canSeePlayer: false,
-    alertLevel: 0,
-    waypointIndex: 0,
-    waypoints: [],
-    growlTimer: 0,
-    chaseMusicTimer: 0,
+    state: EST.PATROL,
+    pos: new THREE.Vector3(-3.5, 0, -2.5),
+    target: new THREE.Vector3(),
+    speed: CFG.ENEMY_SPEED_PATROL,
+    timer: 0,
+    lastKnown: null,
+    seePlayer: false,
+    wpIdx: 0,
+    wps: [],
+    growlCD: 0,
+    chaseCD: 0,
+    distToPlayer: 999,
+    armL: null, armR: null, legL: null, legR: null, torso: null,
 };
 
 function createEnemy() {
-    const group = new THREE.Group();
+    const g = new THREE.Group();
+    const skin = mat(0x1a1015);
+    const cloth = mat(0x221518);
 
-    // Corps
-    const bodyGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.6, 8);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x221a1a, roughness: 0.9 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 1.2;
-    body.castShadow = true;
-    group.add(body);
+    // Torso
+    enemy.torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.4, 8), cloth);
+    enemy.torso.position.y = 1.2;
+    enemy.torso.castShadow = true;
+    g.add(enemy.torso);
 
     // Tete
-    const headGeo = new THREE.SphereGeometry(0.22, 8, 6);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0x332222, roughness: 0.8 });
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 2.2;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), skin);
+    head.position.y = 2.1;
     head.castShadow = true;
-    group.add(head);
+    g.add(head);
 
     // Yeux
-    const eyeGeo = new THREE.SphereGeometry(0.04, 6, 4);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 0.8 });
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.08, 2.24, -0.18);
-    group.add(eyeL);
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeR.position.set(0.08, 2.24, -0.18);
-    group.add(eyeR);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 1 });
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), eyeMat);
+    eyeL.position.set(-0.07, 2.14, -0.17);
+    g.add(eyeL);
+    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), eyeMat);
+    eyeR.position.set(0.07, 2.14, -0.17);
+    g.add(eyeR);
+
+    // Lumiere yeux
+    const el = new THREE.PointLight(0xff2200, 0.4, 6);
+    el.position.set(0, 2.1, -0.3);
+    g.add(el);
 
     // Bras
-    const armGeo = new THREE.CylinderGeometry(0.06, 0.08, 1, 6);
-    const armMat = new THREE.MeshStandardMaterial({ color: 0x221a1a });
-    const armL = new THREE.Mesh(armGeo, armMat);
-    armL.position.set(-0.4, 1.3, 0);
-    armL.rotation.z = 0.2;
-    group.add(armL);
-    const armR = new THREE.Mesh(armGeo, armMat);
-    armR.position.set(0.4, 1.3, 0);
-    armR.rotation.z = -0.2;
-    group.add(armR);
+    enemy.armL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.9, 6), skin);
+    enemy.armL.position.set(-0.35, 1.25, 0);
+    g.add(enemy.armL);
+    enemy.armR = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.9, 6), skin);
+    enemy.armR.position.set(0.35, 1.25, 0);
+    g.add(enemy.armR);
 
     // Jambes
-    const legGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.8, 6);
-    const legL = new THREE.Mesh(legGeo, armMat);
-    legL.position.set(-0.15, 0.4, 0);
-    group.add(legL);
-    const legR = new THREE.Mesh(legGeo, armMat);
-    legR.position.set(0.15, 0.4, 0);
-    group.add(legR);
+    enemy.legL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.8, 6), cloth);
+    enemy.legL.position.set(-0.13, 0.4, 0);
+    g.add(enemy.legL);
+    enemy.legR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.8, 6), cloth);
+    enemy.legR.position.set(0.13, 0.4, 0);
+    g.add(enemy.legR);
 
-    // Lumiere des yeux
-    const eyeLight = new THREE.PointLight(0xff2200, 0.3, 5);
-    eyeLight.position.set(0, 2.2, -0.3);
-    group.add(eyeLight);
+    g.position.copy(enemy.pos);
+    scene.add(g);
+    enemy.mesh = g;
 
-    group.position.copy(enemy.position);
-    scene.add(group);
-    enemy.mesh = group;
-    enemy.body = body;
-    enemy.armL = armL;
-    enemy.armR = armR;
-    enemy.legL = legL;
-    enemy.legR = legR;
-    enemy.eyeLight = eyeLight;
-
-    // Waypoints de patrouille (dans la maison)
-    enemy.waypoints = [
-        new THREE.Vector3(6, 0, 6),    // Salon
-        new THREE.Vector3(-6, 0, 6),   // Cuisine
-        new THREE.Vector3(6, 0, -5),   // Couloir
-        new THREE.Vector3(-6, 0, -5),  // SdB
-        new THREE.Vector3(6, 3, -9),   // Etage
-        new THREE.Vector3(1, 3, -12),  // Chambre 1
-        new THREE.Vector3(9, 3, -12),  // Chambre 2
-        new THREE.Vector3(-6, -3, 9),  // Sous-sol
+    // Waypoints
+    enemy.wps = [
+        new THREE.Vector3(-3.5, 0, 2.5),   // Salon
+        new THREE.Vector3(3.5, 0, 2.5),     // Cuisine
+        new THREE.Vector3(-3.5, 0, -2.5),   // SdB
+        new THREE.Vector3(3.5, 0, -2.5),    // Rangement
+        new THREE.Vector3(-3.5, 3, 2.5),    // Chambre 1
+        new THREE.Vector3(3.5, 3, 2.5),     // Chambre 2
+        new THREE.Vector3(-3.5, -3, 0),     // Sous-sol stockage
+        new THREE.Vector3(3.5, -3, 0),      // Sous-sol generateur
     ];
-
-    enemy.targetPos.copy(enemy.waypoints[0]);
-    enemy.state = ENEMY_STATES.PATROL;
+    enemy.target.copy(enemy.wps[0]);
 }
 
 function updateEnemy(dt) {
-    if (!enemy.mesh || !gameState.running || gameState.paused) return;
+    if (!enemy.mesh || !gameRunning || gamePaused) return;
 
-    const distToPlayer = enemy.position.distanceTo(player.position);
-    const dirToPlayer = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
+    const pp = playerPos.clone();
+    pp.y = 0;
+    const ep = enemy.pos.clone();
+    ep.y = 0;
+    enemy.distToPlayer = ep.distanceTo(pp);
 
-    // Vision check
-    enemy.canSeePlayer = distToPlayer < CONFIG.ENEMY.DETECT_RANGE && hasLineOfSight(enemy.position, player.position);
+    const dir = new THREE.Vector3().subVectors(pp, ep).normalize();
+    enemy.seePlayer = enemy.distToPlayer < CFG.ENEMY_DETECT && !playerHiding && lineOfSight(enemy.pos, playerPos);
 
-    // Hearing check
-    const hearRange = player.sprinting ? CONFIG.ENEMY.HEAR_RUN : CONFIG.ENEMY.HEAR_RANGE;
-    const canHear = distToPlayer < hearRange && player.noiseLevel > 0.1;
+    const hearRange = playerSprint ? CFG.ENEMY_HEAR_RUN : CFG.ENEMY_HEAR;
+    const canHear = enemy.distToPlayer < hearRange && playerNoise > 0.1 && !playerHiding;
 
-    // State machine
     switch (enemy.state) {
-        case ENEMY_STATES.IDLE:
-            enemy.stateTimer -= dt;
+        case EST.IDLE:
+            enemy.timer -= dt;
             enemy.speed = 0;
-            animateEnemyIdle(dt);
-            if (enemy.stateTimer <= 0) {
-                enemy.state = ENEMY_STATES.PATROL;
-                pickNextWaypoint();
-            }
-            if (enemy.canSeePlayer || canHear) transitionToChase();
+            animIdle(dt);
+            if (enemy.timer <= 0) { enemy.state = EST.PATROL; nextWP(); }
+            if (enemy.seePlayer || canHear) toChase();
             break;
 
-        case ENEMY_STATES.PATROL:
-            enemy.speed = CONFIG.ENEMY.SPEED_PATROL;
-            moveTowards(enemy.targetPos, enemy.speed, dt);
-            animateEnemyWalk(dt);
-            if (enemy.position.distanceTo(enemy.targetPos) < 1) {
-                enemy.state = ENEMY_STATES.IDLE;
-                enemy.stateTimer = 2 + Math.random() * 4;
-                audio.creak();
+        case EST.PATROL:
+            enemy.speed = CFG.ENEMY_SPEED_PATROL;
+            moveEnemy(enemy.target, enemy.speed, dt);
+            animWalk(dt);
+            if (enemy.pos.distanceTo(enemy.target) < 1.2) {
+                enemy.state = EST.IDLE;
+                enemy.timer = 2 + Math.random() * 3;
+                SFX.creak();
             }
-            if (enemy.canSeePlayer || canHear) transitionToChase();
+            if (enemy.seePlayer || canHear) toChase();
             break;
 
-        case ENEMY_STATES.ALERT:
-            enemy.speed = CONFIG.ENEMY.SPEED_SEARCH;
-            moveTowards(enemy.lastKnownPlayerPos, enemy.speed, dt);
-            animateEnemyWalk(dt);
-            if (enemy.position.distanceTo(enemy.lastKnownPlayerPos) < 2) {
-                enemy.state = ENEMY_STATES.SEARCH;
-                enemy.stateTimer = CONFIG.ENEMY.SEARCH_TIME;
+        case EST.ALERT:
+            enemy.speed = CFG.ENEMY_SPEED_SEARCH;
+            moveEnemy(enemy.lastKnown, enemy.speed, dt);
+            animWalk(dt);
+            if (enemy.pos.distanceTo(enemy.lastKnown) < 2) {
+                enemy.state = EST.SEARCH;
+                enemy.timer = CFG.ENEMY_SEARCH_TIME;
             }
-            if (enemy.canSeePlayer) transitionToChase();
+            if (enemy.seePlayer) toChase();
             break;
 
-        case ENEMY_STATES.CHASE:
-            enemy.speed = CONFIG.ENEMY.SPEED_CHASE;
-            moveTowards(player.position, enemy.speed, dt);
-            animateEnemyRun(dt);
-            enemy.stateTimer = CONFIG.ENEMY.CHASE_TIMEOUT;
-            enemy.lastKnownPlayerPos = player.position.clone();
+        case EST.CHASE:
+            enemy.speed = CFG.ENEMY_SPEED_CHASE;
+            moveEnemy(playerPos, enemy.speed, dt);
+            animRun(dt);
+            enemy.timer = CFG.ENEMY_CHASE_TIME;
+            enemy.lastKnown = playerPos.clone();
 
-            if (enemy.chaseMusicTimer <= 0) {
-                audio.chaseMusic();
-                enemy.chaseMusicTimer = 2;
-            }
-            enemy.chaseMusicTimer -= dt;
+            enemy.chaseCD -= dt;
+            if (enemy.chaseCD <= 0) { SFX.chase(); enemy.chaseCD = 2; }
 
-            if (distToPlayer < 1.5 && !player.hiding) {
-                attackPlayer();
-            }
+            if (enemy.distToPlayer < 1.5 && !playerHiding) attackPlayer();
 
-            if (!enemy.canSeePlayer && !canHear) {
-                enemy.state = ENEMY_STATES.SEARCH;
-                enemy.stateTimer = CONFIG.ENEMY.SEARCH_TIME;
+            if (!enemy.seePlayer && !canHear) {
+                enemy.state = EST.SEARCH;
+                enemy.timer = CFG.ENEMY_SEARCH_TIME;
             }
             break;
 
-        case ENEMY_STATES.SEARCH:
-            enemy.speed = CONFIG.ENEMY.SPEED_SEARCH;
-            const searchPoint = enemy.lastKnownPlayerPos.clone();
-            searchPoint.x += Math.sin(gameTime * 2) * 3;
-            searchPoint.z += Math.cos(gameTime * 2) * 3;
-            moveTowards(searchPoint, enemy.speed, dt);
-            animateEnemyWalk(dt);
-            enemy.stateTimer -= dt;
-            if (enemy.stateTimer <= 0) {
-                enemy.state = ENEMY_STATES.RETURN;
-                pickNextWaypoint();
-            }
-            if (enemy.canSeePlayer || canHear) transitionToChase();
+        case EST.SEARCH: {
+            enemy.speed = CFG.ENEMY_SPEED_SEARCH;
+            const sp = enemy.lastKnown.clone();
+            sp.x += Math.sin(gameTime * 1.5) * 4;
+            sp.z += Math.cos(gameTime * 1.5) * 4;
+            moveEnemy(sp, enemy.speed, dt);
+            animWalk(dt);
+            enemy.timer -= dt;
+            if (enemy.timer <= 0) { enemy.state = EST.RETURN; nextWP(); }
+            if (enemy.seePlayer || canHear) toChase();
             break;
-
-        case ENEMY_STATES.RETURN:
-            enemy.speed = CONFIG.ENEMY.SPEED_PATROL;
-            moveTowards(enemy.targetPos, enemy.speed, dt);
-            animateEnemyWalk(dt);
-            if (enemy.position.distanceTo(enemy.targetPos) < 1.5) {
-                enemy.state = ENEMY_STATES.PATROL;
-                pickNextWaypoint();
-            }
-            if (enemy.canSeePlayer || canHear) transitionToChase();
-            break;
-    }
-
-    // Update mesh
-    enemy.mesh.position.copy(enemy.position);
-    if (enemy.state === ENEMY_STATES.CHASE) {
-        enemy.mesh.lookAt(player.position.x, enemy.position.y, player.position.z);
-    } else {
-        enemy.mesh.lookAt(enemy.targetPos.x, enemy.position.y, enemy.targetPos.z);
-    }
-
-    // Growl
-    enemy.growlTimer -= dt;
-    if (enemy.growlTimer <= 0) {
-        if (enemy.state === ENEMY_STATES.CHASE || distToPlayer < 8) {
-            audio.enemyGrowl();
-            enemy.growlTimer = 5 + Math.random() * 10;
         }
+
+        case EST.RETURN:
+            enemy.speed = CFG.ENEMY_SPEED_PATROL;
+            moveEnemy(enemy.target, enemy.speed, dt);
+            animWalk(dt);
+            if (enemy.pos.distanceTo(enemy.target) < 1.5) {
+                enemy.state = EST.PATROL;
+                nextWP();
+            }
+            if (enemy.seePlayer || canHear) toChase();
+            break;
     }
 
-    // Distance to player for UI
-    enemy.distanceToPlayer = distToPlayer;
+    enemy.mesh.position.copy(enemy.pos);
+    const lookTarget = enemy.state === EST.CHASE ? playerPos : enemy.target;
+    enemy.mesh.lookAt(lookTarget.x, enemy.pos.y, lookTarget.z);
+
+    enemy.growlCD -= dt;
+    if (enemy.growlCD <= 0 && enemy.distToPlayer < 10) {
+        SFX.growl();
+        enemy.growlCD = 6 + Math.random() * 8;
+    }
 }
 
-function transitionToChase() {
-    if (player.hiding) return;
-    enemy.state = ENEMY_STATES.CHASE;
-    enemy.stateTimer = CONFIG.ENEMY.CHASE_TIMEOUT;
-    enemy.lastKnownPlayerPos = player.position.clone();
-    audio.enemyGrowl();
+function toChase() {
+    if (playerHiding) return;
+    enemy.state = EST.CHASE;
+    enemy.timer = CFG.ENEMY_CHASE_TIME;
+    enemy.lastKnown = playerPos.clone();
+    SFX.growl();
 }
 
-function pickNextWaypoint() {
-    enemy.waypointIndex = (enemy.waypointIndex + 1) % enemy.waypoints.length;
-    enemy.targetPos.copy(enemy.waypoints[enemy.waypointIndex]);
+function nextWP() {
+    enemy.wpIdx = (enemy.wpIdx + 1) % enemy.wps.length;
+    enemy.target.copy(enemy.wps[enemy.wpIdx]);
 }
 
-function moveTowards(target, speed, dt) {
-    const dir = new THREE.Vector3().subVectors(target, enemy.position);
+function moveEnemy(target, speed, dt) {
+    const dir = new THREE.Vector3().subVectors(target, enemy.pos);
     dir.y = 0;
-    if (dir.length() > 0.1) {
-        dir.normalize();
-        const newPos = enemy.position.clone().add(dir.clone().multiplyScalar(speed * dt));
-        if (!checkCollision(newPos.x, enemy.position.y, newPos.z, 0.3)) {
-            enemy.position.copy(newPos);
-        } else {
-            // Try to slide along walls
-            const slideX = new THREE.Vector3(dir.x, 0, 0);
-            const slideZ = new THREE.Vector3(0, 0, dir.z);
-            const tryX = enemy.position.clone().add(slideX.multiplyScalar(speed * dt));
-            const tryZ = enemy.position.clone().add(slideZ.multiplyScalar(speed * dt));
-            if (!checkCollision(tryX.x, enemy.position.y, tryX.z, 0.3)) {
-                enemy.position.x = tryX.x;
-            } else if (!checkCollision(tryZ.x, enemy.position.y, tryZ.z, 0.3)) {
-                enemy.position.z = tryZ.z;
-            }
-        }
+    if (dir.length() < 0.2) return;
+    dir.normalize();
+    const np = enemy.pos.clone().add(dir.clone().multiplyScalar(speed * dt));
+    if (!colCheck(np.x, enemy.pos.y, np.z, 0.3)) {
+        enemy.pos.copy(np);
     }
 }
 
-function animateEnemyWalk(dt) {
-    const t = gameTime * 6;
-    enemy.legL.rotation.x = Math.sin(t) * 0.5;
-    enemy.legR.rotation.x = Math.sin(t + Math.PI) * 0.5;
-    enemy.armL.rotation.x = Math.sin(t + Math.PI) * 0.3;
-    enemy.armR.rotation.x = Math.sin(t) * 0.3;
-    enemy.body.position.y = 1.2 + Math.abs(Math.sin(t)) * 0.03;
-}
-
-function animateEnemyRun(dt) {
-    const t = gameTime * 10;
-    enemy.legL.rotation.x = Math.sin(t) * 0.8;
-    enemy.legR.rotation.x = Math.sin(t + Math.PI) * 0.8;
-    enemy.armL.rotation.x = Math.sin(t + Math.PI) * 0.6;
-    enemy.armR.rotation.x = Math.sin(t) * 0.6;
-    enemy.body.position.y = 1.2 + Math.abs(Math.sin(t)) * 0.06;
-}
-
-function animateEnemyIdle(dt) {
-    const t = gameTime * 1.5;
-    enemy.body.position.y = 1.2 + Math.sin(t) * 0.02;
-    enemy.armL.rotation.x = Math.sin(t) * 0.1;
-    enemy.armR.rotation.x = Math.sin(t + 1) * 0.1;
-}
-
-function hasLineOfSight(from, to) {
+function lineOfSight(from, to) {
     const dir = new THREE.Vector3().subVectors(to, from);
     const dist = dir.length();
     dir.normalize();
-    const raycaster = new THREE.Raycaster(from.clone().add(new THREE.Vector3(0, 1.5, 0)), dir, 0, dist);
-    const intersects = raycaster.intersectObjects(scene.children.filter(c => c.isMesh), false);
-    for (const hit of intersects) {
-        if (hit.distance < dist - 0.5 && hit.object.name !== 'player') return false;
+    const rc = new THREE.Raycaster(from.clone().add(new THREE.Vector3(0, 1.5, 0)), dir, 0, dist);
+    const hits = rc.intersectObjects(scene.children.filter(c => c.isMesh), false);
+    for (const h of hits) {
+        if (h.distance < dist - 0.5) return false;
     }
     return true;
 }
 
 function attackPlayer() {
-    if (player.health <= 0) return;
-    player.health -= 34;
-    audio.hit();
+    if (playerHealth <= 0) return;
+    playerHealth -= 35;
+    SFX.hit();
     screenFlash();
-    enemy.state = ENEMY_STATES.SEARCH;
-    enemy.stateTimer = 5;
-    enemy.lastKnownPlayerPos = player.position.clone();
-
-    if (player.health <= 0) {
-        player.health = 0;
+    enemy.state = EST.SEARCH;
+    enemy.timer = 5;
+    enemy.lastKnown = playerPos.clone();
+    if (playerHealth <= 0) {
+        playerHealth = 0;
         gameOver('Le monstre vous a attrape...');
     }
 }
 
+function animIdle(dt) {
+    const t = gameTime * 1.5;
+    enemy.torso.position.y = 1.2 + Math.sin(t) * 0.015;
+    enemy.armL.rotation.x = Math.sin(t) * 0.08;
+    enemy.armR.rotation.x = Math.sin(t + 1) * 0.08;
+    enemy.legL.rotation.x = 0;
+    enemy.legR.rotation.x = 0;
+}
+
+function animWalk(dt) {
+    const t = gameTime * 5;
+    enemy.legL.rotation.x = Math.sin(t) * 0.5;
+    enemy.legR.rotation.x = Math.sin(t + Math.PI) * 0.5;
+    enemy.armL.rotation.x = Math.sin(t + Math.PI) * 0.3;
+    enemy.armR.rotation.x = Math.sin(t) * 0.3;
+    enemy.torso.position.y = 1.2 + Math.abs(Math.sin(t)) * 0.02;
+}
+
+function animRun(dt) {
+    const t = gameTime * 9;
+    enemy.legL.rotation.x = Math.sin(t) * 0.8;
+    enemy.legR.rotation.x = Math.sin(t + Math.PI) * 0.8;
+    enemy.armL.rotation.x = Math.sin(t + Math.PI) * 0.6;
+    enemy.armR.rotation.x = Math.sin(t) * 0.6;
+    enemy.torso.position.y = 1.2 + Math.abs(Math.sin(t)) * 0.05;
+}
+
 // ============================================
-// SECTION 10: COLLISIONS
+// 12. COLLISIONS
 // ============================================
-function checkCollision(x, y, z, radius) {
+function colCheck(x, y, z, r) {
     for (const c of colliders) {
-        if (x + radius > c.min.x && x - radius < c.max.x &&
-            y + 1.7 > c.min.y && y < c.max.y &&
-            z + radius > c.min.z && z - radius < c.max.z) {
+        if (x + r > c.minX && x - r < c.maxX &&
+            y + CFG.CAM_H > c.minY && y - 0.1 < c.maxY &&
+            z + r > c.minZ && z - r < c.maxZ) {
             return true;
         }
     }
@@ -1012,626 +1116,529 @@ function checkCollision(x, y, z, radius) {
 }
 
 // ============================================
-// SECTION 11: CONTROLES
+// 13. CONTROLES
 // ============================================
 const keys = {};
-let mouseLocked = false;
+let ptrLocked = false;
 
 function initControls() {
-    document.addEventListener('keydown', e => { keys[e.code] = true; handleKeyDown(e); });
-    document.addEventListener('keyup', e => { keys[e.code] = false; });
-    document.addEventListener('mousemove', e => {
-        if (!mouseLocked || gameState.paused) return;
-        const sens = settings.sensitivity * 0.0003;
-        player.rotation.y -= e.movementX * sens;
-        player.rotation.x -= e.movementY * sens;
-        player.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, player.rotation.x));
+    addEventListener('keydown', e => { keys[e.code] = true; onKey(e); });
+    addEventListener('keyup', e => { keys[e.code] = false; });
+
+    addEventListener('mousemove', e => {
+        if (!ptrLocked || gamePaused || !gameRunning) return;
+        const s = settings.sens * 0.0003;
+        playerRotY -= e.movementX * s;
+        playerRotX = Math.max(-1.4, Math.min(1.4, playerRotX - e.movementY * s));
     });
-    document.addEventListener('mousedown', e => { if (gameState.running && !gameState.paused && mouseLocked) handleAttack(); });
-    document.addEventListener('pointerlockchange', () => {
-        mouseLocked = !!document.pointerLockElement;
-        if (!mouseLocked && gameState.running && !gameState.paused) pauseGame();
+
+    addEventListener('mousedown', e => {
+        if (gameRunning && !gamePaused && ptrLocked && e.button === 0) onInteract();
+    });
+
+    addEventListener('pointerlockchange', () => {
+        ptrLocked = !!document.pointerLockElement;
+        if (!ptrLocked && gameRunning && !gamePaused) pauseGame();
     });
 }
 
-function handleKeyDown(e) {
-    if (e.code === 'Escape') {
-        if (gameState.running) togglePause();
-    }
-    if (!gameState.running || gameState.paused) return;
-    if (e.code === 'KeyE') handleInteraction();
-    if (e.code === 'KeyI') toggleInventory();
-    if (e.code === 'KeyC') toggleCraft();
-    if (e.code === 'KeyF') handleConsume('food');
-    if (e.code === 'KeyG') handleConsume('drink');
-    if (e.code === 'KeyR') handleConsume('heal');
-    if (e.code === 'KeyT') toggleFlashlight();
-    if (e.code === 'KeyH') handleHide();
-    if (e.code >= 'Digit1' && e.code <= 'Digit6') {
-        player.selectedSlot = parseInt(e.code.replace('Digit', '')) - 1;
-        updateInventoryUI();
+function onKey(e) {
+    if (e.code === 'Escape' && gameRunning) { togglePause(); return; }
+    if (!gameRunning || gamePaused) return;
+
+    switch (e.code) {
+        case 'KeyE': onInteract(); break;
+        case 'KeyI': togglePanel('inventory-panel'); break;
+        case 'KeyC': togglePanel('craft-panel'); break;
+        case 'KeyH': handleHide(); break;
+        case 'KeyT': toggleFlashlight(); break;
+        case 'KeyF': useMedkit(); break;
+        case 'KeyR': useMedkit(); break;
+        case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': case 'Digit6':
+            selectedSlot = parseInt(e.code.replace('Digit', '')) - 1;
+            updateInvUI();
+            break;
     }
 }
 
-function updatePlayerMovement(dt) {
-    if (gameState.paused || player.hiding) return;
+function updateMovement(dt) {
+    if (gamePaused || playerHiding || !gameRunning) return;
 
-    const forward = new THREE.Vector3(-Math.sin(player.rotation.y), 0, -Math.cos(player.rotation.y));
-    const right = new THREE.Vector3(Math.cos(player.rotation.y), 0, -Math.sin(player.rotation.y));
+    const fwd = new THREE.Vector3(-Math.sin(playerRotY), 0, -Math.cos(playerRotY));
+    const rgt = new THREE.Vector3(Math.cos(playerRotY), 0, -Math.sin(playerRotY));
 
-    let moveDir = new THREE.Vector3();
-    if (keys['KeyW'] || keys['ArrowUp']) moveDir.add(forward);
-    if (keys['KeyS'] || keys['ArrowDown']) moveDir.sub(forward);
-    if (keys['KeyA'] || keys['ArrowLeft']) moveDir.sub(right);
-    if (keys['KeyD'] || keys['ArrowRight']) moveDir.add(right);
+    let move = new THREE.Vector3();
+    if (keys['KeyW'] || keys['ArrowUp']) move.add(fwd);
+    if (keys['KeyS'] || keys['ArrowDown']) move.sub(fwd);
+    if (keys['KeyA'] || keys['ArrowLeft']) move.sub(rgt);
+    if (keys['KeyD'] || keys['ArrowRight']) move.add(rgt);
 
-    player.sprinting = keys['ShiftLeft'] && moveDir.length() > 0 && player.stamina > 0;
-    const speed = player.sprinting ? CONFIG.PLAYER.SPEED * CONFIG.PLAYER.SPRINT_MULT : CONFIG.PLAYER.SPEED;
+    playerSprint = keys['ShiftLeft'] && move.length() > 0 && playerStamina > 0;
+    const spd = playerSprint ? CFG.SPEED * CFG.SPRINT_MULT : CFG.SPEED;
 
-    if (moveDir.length() > 0) {
-        moveDir.normalize();
-        player.noiseLevel = player.sprinting ? 1 : 0.3;
+    if (move.lengthSq() > 0) {
+        move.normalize();
+        playerNoise = playerSprint ? 1 : 0.25;
 
-        const newX = player.position.x + moveDir.x * speed * dt;
-        const newZ = player.position.z + moveDir.z * speed * dt;
+        const nx = playerPos.x + move.x * spd * dt;
+        const nz = playerPos.z + move.z * spd * dt;
 
-        if (!checkCollision(newX, player.position.y, player.position.z, CONFIG.WORLD.PLAYER_RADIUS)) {
-            player.position.x = newX;
-        }
-        if (!checkCollision(player.position.x, player.position.y, newZ, CONFIG.WORLD.PLAYER_RADIUS)) {
-            player.position.z = newZ;
-        }
+        if (!colCheck(nx, playerPos.y, playerPos.z, CFG.RADIUS)) playerPos.x = nx;
+        if (!colCheck(playerPos.x, playerPos.y, nz, CFG.RADIUS)) playerPos.z = nz;
 
-        // Footstep sounds
-        player.footstepTimer -= dt;
-        if (player.footstepTimer <= 0) {
-            audio.footstep(player.sprinting);
-            enemyOnNoise(player.sprinting ? 3 : 1, player.position.x, player.position.z);
-            player.footstepTimer = player.sprinting ? 0.3 : 0.5;
+        footstepCD -= dt;
+        if (footstepCD <= 0) {
+            SFX.step(playerSprint);
+            enemyNoise(playerSprint ? 3 : 1, playerPos.x, playerPos.z);
+            footstepCD = playerSprint ? 0.28 : 0.45;
         }
     } else {
-        player.noiseLevel *= 0.9;
+        playerNoise *= 0.85;
     }
 
-    // Sprint stamina
-    if (player.sprinting) {
-        player.stamina -= CONFIG.PLAYER.SPRINT_DRAIN * dt;
-        if (player.stamina <= 0) { player.stamina = 0; player.sprinting = false; }
+    if (playerSprint) {
+        playerStamina -= CFG.SPRINT_DRAIN * dt;
+        if (playerStamina <= 0) { playerStamina = 0; playerSprint = false; }
     } else {
-        player.stamina = Math.min(100, player.stamina + CONFIG.PLAYER.STAMINA_REGEN * dt);
+        playerStamina = Math.min(100, playerStamina + CFG.STAMINA_REGEN * dt);
     }
 
-    // Crouch
-    player.crouching = keys['KeyC'];
-    const targetHeight = player.crouching ? CONFIG.WORLD.CROUCH_HEIGHT : CONFIG.WORLD.PLAYER_HEIGHT;
-    player.position.y += (targetHeight - player.position.y) * dt * 10;
+    playerCrouch = keys['KeyC'];
+    const tgtH = playerCrouch ? CFG.CAM_CROUCH : CFG.CAM_H;
+    playerPos.y += (tgtH - playerPos.y) * dt * 12;
 
-    // Camera
-    camera.position.copy(player.position);
+    camera.position.copy(playerPos);
     camera.rotation.order = 'YXZ';
-    camera.rotation.y = player.rotation.y;
-    camera.rotation.x = player.rotation.x;
+    camera.rotation.y = playerRotY;
+    camera.rotation.x = playerRotX;
 }
 
-// ============================================
-// SECTION 12: INTERACTIONS
-// ============================================
-function handleInteraction() {
-    const nearInteract = getNearestInteractable();
-    if (!nearInteract) return;
-
-    const data = nearInteract.data;
-    switch (data.type) {
-        case 'door':
-            toggleDoor(data.doorId);
-            break;
-        case 'item':
-            collectItem(data.itemObj);
-            break;
-        case 'generator':
-            fixGenerator();
-            break;
-        case 'alarm':
-            cutAlarm();
-            break;
-        case 'hide':
-            enterHideSpot(data);
-            break;
+function enemyNoise(intensity, x, z) {
+    if (enemy.state === EST.CHASE) return;
+    const d = enemy.pos.distanceTo(new THREE.Vector3(x, 0, z));
+    if (d < intensity * 5) {
+        enemy.lastKnown = new THREE.Vector3(x, 0, z);
+        enemy.state = EST.ALERT;
+        enemy.timer = 3;
     }
 }
 
-function getNearestInteractable() {
-    let nearest = null;
-    let nearestDist = Infinity;
+// ============================================
+// 14. INTERACTIONS
+// ============================================
+function getNearestInteract() {
+    let best = null, bestD = Infinity;
     for (const ia of interactables) {
-        const dist = player.position.distanceTo(new THREE.Vector3(ia.x, ia.y, ia.z));
-        if (dist < ia.radius && dist < nearestDist) {
-            nearest = ia;
-            nearestDist = dist;
-        }
+        const d = playerPos.distanceTo(new THREE.Vector3(ia.x, ia.y, ia.z));
+        if (d < ia.radius && d < bestD) { best = ia; bestD = d; }
     }
-    return nearest;
+    return best;
+}
+
+function onInteract() {
+    const ia = getNearestInteract();
+    if (!ia) return;
+    const d = ia.data;
+    switch (d.type) {
+        case 'door': toggleDoor(d.doorId); break;
+        case 'item': collectItem(d.obj); break;
+        case 'generator': fixGenerator(); break;
+        case 'hide': enterHide(d); break;
+    }
 }
 
 function fixGenerator() {
-    if (player.inventory.includes('gen_part1') && player.inventory.includes('gen_part2')) {
-        gameState.generatorFixed = true;
-        removeFromInventory('gen_part1');
-        removeFromInventory('gen_part2');
+    if (playerInv.includes('gen_part1') && playerInv.includes('gen_part2')) {
+        generatorFixed = true;
+        removeFromInv('gen_part1');
+        removeFromInv('gen_part2');
         notify('Generateur repare !', 'success');
-        audio.itemPickup();
-        checkWinCondition();
+        SFX.pickup();
     } else {
-        notify('Il manque des pieces pour le generateur', 'warning');
-        audio.doorLocked();
-    }
-}
-
-function cutAlarm() {
-    if (player.inventory.includes('wire_cutter')) {
-        gameState.alarmCut = true;
-        removeFromInventory('wire_cutter');
-        notify('Alarme desactivee !', 'success');
-        audio.itemPickup();
-        checkWinCondition();
-    } else {
-        notify('Il faut un coupe-fil', 'warning');
-    }
-}
-
-function checkWinCondition() {
-    if (gameState.generatorFixed && gameState.alarmCut && player.inventory.includes('final_key')) {
-        notify('Tout est pret ! Allez a la porte d\'entree !', 'success');
-    }
-}
-
-function attemptEscape() {
-    if (gameState.generatorFixed && gameState.alarmCut && player.inventory.includes('final_key')) {
-        winGame();
-        return true;
-    }
-    return false;
-}
-
-function handleConsume(type) {
-    let itemId = null;
-    if (type === 'food') {
-        itemId = player.inventory.find(id => ITEMS_DATA[id] && ITEMS_DATA[id].food);
-    } else if (type === 'drink') {
-        itemId = 'medkit'; // placeholder
-    } else if (type === 'heal') {
-        itemId = player.inventory.find(id => id === 'medkit');
-    }
-    if (itemId) {
-        removeFromInventory(itemId);
-        if (type === 'heal') { player.health = Math.min(100, player.health + 40); notify('+40 PV', 'success'); }
-        audio.itemPickup();
-    }
-}
-
-function toggleFlashlight() {
-    if (player.inventory.includes('flashlight')) {
-        player.flashlightOn = !player.flashlightOn;
-        player.flashlight.visible = player.flashlightOn;
-        notify(player.flashlightOn ? 'Lampe torche : ON' : 'Lampe torche : OFF', 'info');
-    } else {
-        notify('Vous n\'avez pas de lampe torche', 'warning');
+        notify('Il manque des pieces moteur', 'warning');
+        SFX.lock();
     }
 }
 
 function handleHide() {
-    if (player.hiding) {
-        exitHide();
-        return;
-    }
-    for (const spot of hidingSpots) {
-        const dist = player.position.distanceTo(new THREE.Vector3(spot.x, spot.y, spot.z));
-        if (dist < 2.5) {
-            enterHideSpot(spot);
+    if (playerHiding) { exitHide(); return; }
+    for (const s of hideSpots) {
+        if (playerPos.distanceTo(new THREE.Vector3(s.x, s.y, s.z)) < 2.5) {
+            enterHide(s);
             return;
         }
     }
     notify('Aucune cachette a proximite', 'info');
 }
 
-function enterHideSpot(data) {
-    player.hiding = true;
-    player.hiddenType = data.type;
-    player.position.set(data.x, data.y + 0.5, data.z);
-    audio.creak();
-    notify('Vous vous cachez... (H pour sortir)', 'info');
+function enterHide(s) {
+    playerHiding = true;
+    playerHideType = s.type;
+    playerPos.set(s.x, s.y + (s.type === 'bed' ? 0.4 : CFG.CAM_H), s.z);
+    SFX.creak();
+    notify('Cache ! (H pour sortir)', 'info');
 }
 
 function exitHide() {
-    player.hiding = false;
-    player.hiddenType = null;
-    audio.creak();
+    playerHiding = false;
+    playerHideType = null;
+    SFX.creak();
 }
 
-// ============================================
-// SECTION 13: BRUIT & ENNEMI REACTION
-// ============================================
-function enemyOnNoise(intensity, x, z) {
-    if (enemy.state === ENEMY_STATES.CHASE) return;
-    const dist = enemy.position.distanceTo(new THREE.Vector3(x, 0, z));
-    const hearRange = intensity * 5;
-    if (dist < hearRange) {
-        enemy.lastKnownPlayerPos = new THREE.Vector3(x, 0, z);
-        enemy.state = ENEMY_STATES.ALERT;
-        enemy.stateTimer = 3;
+function toggleFlashlight() {
+    if (playerInv.includes('flashlight')) {
+        playerFlashlightOn = !playerFlashlightOn;
+        if (playerFlashlight) playerFlashlight.visible = playerFlashlightOn;
+        notify(playerFlashlightOn ? 'Lampe : ON' : 'Lampe : OFF', 'info');
+    } else {
+        notify('Pas de lampe torche', 'warning');
+    }
+}
+
+function useMedkit() {
+    const idx = playerInv.indexOf('medkit');
+    if (idx >= 0 && playerHealth < 100) {
+        playerInv.splice(idx, 1);
+        playerHealth = Math.min(100, playerHealth + 40);
+        SFX.pickup();
+        notify('+40 PV', 'success');
+        updateInvUI();
+    }
+}
+
+function attemptEscape() {
+    if (generatorFixed && playerInv.includes('final_key')) {
+        winGame();
+    } else {
+        const missing = [];
+        if (!generatorFixed) missing.push('generateur');
+        if (!playerInv.includes('final_key')) missing.push('cle de sortie');
+        notify('Manque : ' + missing.join(', '), 'warning');
+        SFX.lock();
     }
 }
 
 // ============================================
-// SECTION 14: UI & MENUS
+// 15. UI
 // ============================================
-const ITEMS_DATA = {};
-Object.values(CONFIG.ITEMS).forEach(d => ITEMS_DATA[d.id] = d);
-
 function notify(text, type) {
-    const container = document.getElementById('notifications');
-    const div = document.createElement('div');
-    div.className = 'notif ' + (type || '');
-    div.textContent = text;
-    container.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
+    const c = document.getElementById('notifications');
+    const d = document.createElement('div');
+    d.className = 'notif ' + (type || '');
+    d.textContent = text;
+    c.appendChild(d);
+    setTimeout(() => d.remove(), 3000);
 }
 
 function screenFlash() {
-    const flash = document.createElement('div');
-    flash.className = 'screen-flash';
-    document.body.appendChild(flash);
-    setTimeout(() => flash.remove(), 400);
+    const f = document.createElement('div');
+    f.className = 'screen-flash';
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 400);
 }
 
 function updateHUD() {
-    if (!gameState.running) return;
-    document.getElementById('stamina-bar').style.width = player.stamina + '%';
-    document.getElementById('health-val');
+    if (!gameRunning) return;
 
-    // Health bar
-    let healthBar = document.getElementById('health-bar-display');
-    if (!healthBar) {
-        const hb = document.createElement('div');
-        hb.className = 'hud-bar';
-        hb.innerHTML = '<span class="bar-icon">❤️</span><div class="bar-track"><div class="bar-fill" id="health-bar-display" style="background:linear-gradient(90deg,#a33,#f66);width:100%"></div></div>';
-        document.getElementById('hud-left').prepend(hb);
+    // Stamina
+    const sf = document.querySelector('.stamina-fill');
+    if (sf) sf.style.width = playerStamina + '%';
+
+    // Health
+    let hb = document.getElementById('hp-bar');
+    if (!hb) {
+        const bar = document.createElement('div');
+        bar.className = 'hud-bar';
+        bar.innerHTML = '<span class="bar-icon">❤️</span><div class="bar-track"><div class="bar-fill" id="hp-bar" style="background:linear-gradient(90deg,#a33,#f66);width:100%"></div></div>';
+        document.getElementById('hud-left').prepend(bar);
+        hb = document.getElementById('hp-bar');
     }
-    document.getElementById('health-bar-display').style.width = player.health + '%';
+    hb.style.width = playerHealth + '%';
 
     // Interaction prompt
     const prompt = document.getElementById('interact-prompt');
-    const interactText = document.getElementById('interact-text');
-    const near = getNearestInteractable();
-    if (near) {
+    const ia = getNearestInteract();
+    if (ia) {
         prompt.classList.remove('hidden');
-        interactText.textContent = near.data.label || '[E] Interagir';
+        document.getElementById('interact-text').textContent = ia.data.label || '[E]';
     } else {
         prompt.classList.add('hidden');
     }
 
-    // Held item
-    const heldIcon = document.getElementById('held-item-icon');
-    const heldDiv = document.getElementById('held-item');
-    const slotItems = player.inventory.slice(0, 6);
-    if (slotItems[player.selectedSlot]) {
-        heldDiv.classList.remove('hidden');
-        heldIcon.textContent = ITEMS_DATA[slotItems[player.selectedSlot]]?.icon || '';
+    // Held item icon
+    const slotItems = playerInv.slice(0, 6);
+    const hi = document.getElementById('held-item');
+    const hiIcon = document.getElementById('held-item-icon');
+    if (slotItems[selectedSlot]) {
+        hi.classList.remove('hidden');
+        hiIcon.textContent = CFG.ITEM_DEFS[slotItems[selectedSlot]]?.icon || '';
     } else {
-        heldDiv.classList.add('hidden');
+        hi.classList.add('hidden');
     }
 
-    // HUD hint for doors
+    // Hint
     const hint = document.getElementById('hud-hint');
-    if (gameState.generatorFixed && gameState.alarmCut && player.inventory.includes('final_key')) {
-        hint.textContent = '➡️ La porte d\'entree est prete !';
-    } else if (!gameState.generatorFixed) {
-        hint.textContent = '🔧 Reparez le generateur (sous-sol)';
-    } else if (!gameState.alarmCut) {
-        hint.textContent = '✂️ Desactivez l\'alarme';
+    if (generatorFixed && playerInv.includes('final_key')) {
+        hint.textContent = '➡ Porte d\'entree prete !';
+        hint.style.color = '#4a4';
+    } else if (!generatorFixed) {
+        hint.textContent = '🔧 Reparer le generateur (sous-sol)';
+    } else if (!playerInv.includes('final_key')) {
+        hint.textContent = '🔑 Trouver la cle de sortie';
     } else {
         hint.textContent = '';
     }
 }
 
-function updateInventoryUI() {
-    const slots = player.inventory.slice(0, 6);
+function updateInvUI() {
+    const items = playerInv.slice(0, 6);
     for (let i = 0; i < 6; i++) {
-        const el = document.getElementById('slot-' + i);
-        const slotDiv = el?.closest('.inv-slot');
-        if (el) {
-            el.textContent = slots[i] ? (ITEMS_DATA[slots[i]]?.icon || '') : '';
-        }
-        if (slotDiv) {
-            slotDiv.classList.toggle('active', i === player.selectedSlot);
-        }
+        const icon = document.getElementById('slot-' + i);
+        const slot = icon?.closest('.inv-slot');
+        if (icon) icon.textContent = items[i] ? (CFG.ITEM_DEFS[items[i]]?.icon || '') : '';
+        if (slot) slot.classList.toggle('active', i === selectedSlot);
     }
 }
 
-function toggleInventory() {
-    document.getElementById('inventory-panel').classList.toggle('hidden');
-    document.getElementById('craft-panel').classList.add('hidden');
-    document.getElementById('build-panel')?.classList.add('hidden');
+function togglePanel(id) {
+    const el = document.getElementById(id);
+    const wasHidden = el.classList.contains('hidden');
+    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+    if (wasHidden) el.classList.remove('hidden');
 }
 
-function toggleCraft() {
-    document.getElementById('craft-panel').classList.toggle('hidden');
-    document.getElementById('inventory-panel').classList.add('hidden');
-}
-
-function toggleBuild() {}
-
-function showNotification(text, type) { notify(text, type); }
-
-// ============================================
-// SECTION 15: SAUVEGARDE / CHARGEMENT
-// ============================================
-function saveGame() {
-    const save = {
-        playerPos: { x: player.position.x, y: player.position.y, z: player.position.z },
-        playerHealth: player.health,
-        playerInventory: [...player.inventory],
-        gameState: { ...gameState },
-        collectedItems: itemObjects.filter(i => i.collected).map(i => i.def.id),
-        settings: { ...settings },
-    };
-    localStorage.setItem('forgotten_house_save', JSON.stringify(save));
-    notify('Partie sauvegardee', 'success');
-}
-
-function loadGame() {
-    const raw = localStorage.getItem('forgotten_house_save');
-    if (!raw) return false;
-    try {
-        const save = JSON.parse(raw);
-        player.position.set(save.playerPos.x, save.playerPos.y, save.playerPos.z);
-        player.health = save.playerHealth;
-        player.inventory = save.playerInventory || [];
-        Object.assign(gameState, save.gameState);
-        // Restore collected items
-        if (save.collectedItems) {
-            save.collectedItems.forEach(id => {
-                const item = itemObjects.find(i => i.def.id === id && !i.collected);
-                if (item) { item.collected = true; scene.remove(item.mesh); }
-            });
+function updateItemGlow(dt) {
+    itemObjects.forEach(item => {
+        if (!item.collected && item.group) {
+            item.group.rotation.y += dt * 1.5;
+            item.group.children[0].position.y = Math.sin(gameTime * 2.5 + item.group.position.x * 3) * 0.03;
         }
-        return true;
-    } catch(e) { return false; }
-}
-
-function hasSaveGame() {
-    return !!localStorage.getItem('forgotten_house_save');
+    });
 }
 
 // ============================================
-// SECTION 16: MENUS & FLOW DU JEU
+// 16. MENUS & FLOW
 // ============================================
-let gameTime = 0;
-
 function initMenus() {
-    document.getElementById('btn-new-game').onclick = () => startNewGame();
-    document.getElementById('btn-continue').onclick = () => continueGame();
-    document.getElementById('btn-options').onclick = () => showSubmenu('options-menu');
-    document.getElementById('btn-credits').onclick = () => showSubmenu('credits-menu');
-    document.getElementById('btn-options-back').onclick = () => hideSubmenu('options-menu');
-    document.getElementById('btn-credits-back').onclick = () => hideSubmenu('credits-menu');
-    document.getElementById('btn-resume').onclick = () => resumeGame();
-    document.getElementById('btn-pause-options').onclick = () => showSubmenu('options-menu');
-    document.getElementById('btn-quit').onclick = () => quitToMenu();
-    document.getElementById('btn-retry').onclick = () => retryGame();
-    document.getElementById('btn-death-quit').onclick = () => quitToMenu();
-    document.getElementById('btn-win-menu').onclick = () => quitToMenu();
+    document.getElementById('btn-new-game').onclick = newGame;
+    document.getElementById('btn-continue').onclick = continueGame;
+    document.getElementById('btn-options').onclick = () => document.getElementById('options-menu').classList.remove('hidden');
+    document.getElementById('btn-credits').onclick = () => document.getElementById('credits-menu').classList.remove('hidden');
+    document.getElementById('btn-options-back').onclick = () => document.getElementById('options-menu').classList.add('hidden');
+    document.getElementById('btn-credits-back').onclick = () => document.getElementById('credits-menu').classList.add('hidden');
+    document.getElementById('btn-resume').onclick = resumeGame;
+    document.getElementById('btn-quit').onclick = quitMenu;
+    document.getElementById('btn-retry').onclick = () => { document.getElementById('death-screen').classList.add('hidden'); newGame(); };
+    document.getElementById('btn-death-quit').onclick = quitMenu;
+    document.getElementById('btn-win-menu').onclick = quitMenu;
 
-    // Options controls
     document.getElementById('opt-volume').oninput = e => {
-        settings.volume = e.target.value / 100;
+        settings.vol = e.target.value / 100;
         document.getElementById('opt-volume-val').textContent = e.target.value + '%';
-        audio.setVolume(settings.volume);
+        if (masterGain) masterGain.gain.value = settings.vol;
     };
     document.getElementById('opt-music').oninput = e => {
-        settings.musicVolume = e.target.value / 100;
+        settings.music = e.target.value / 100;
         document.getElementById('opt-music-val').textContent = e.target.value + '%';
-        audio.setMusicVolume(settings.musicVolume);
+        if (musicGain) musicGain.gain.value = settings.music;
     };
     document.getElementById('opt-sensitivity').oninput = e => {
-        settings.sensitivity = parseInt(e.target.value);
+        settings.sens = parseInt(e.target.value);
         document.getElementById('opt-sens-val').textContent = e.target.value;
     };
-    document.getElementById('opt-quality').onchange = e => { settings.quality = e.target.value; };
     document.getElementById('opt-fullscreen').onclick = () => {
         if (document.fullscreenElement) document.exitFullscreen();
         else document.documentElement.requestFullscreen();
     };
 
-    if (hasSaveGame()) {
+    if (localStorage.getItem('fh_save')) {
         document.getElementById('btn-continue').style.display = '';
     }
 }
 
-function showSubmenu(id) { document.getElementById(id).classList.remove('hidden'); }
-function hideSubmenu(id) { document.getElementById(id).classList.add('hidden'); }
+function resetState() {
+    colliders = []; interactables = []; itemObjects = []; doorObjects = []; hideSpots = [];
+    gameTime = 0; startTime = Date.now();
+    itemsFound = 0; totalItems = 0;
+    generatorFixed = false; alarmCut = false;
+    playerDead = false; hasWon = false; gamePaused = false;
+    if (enemy.mesh) { scene.remove(enemy.mesh); enemy.mesh = null; }
+}
 
-function startNewGame() {
-    audio.init();
-    audio.resume();
+function newGame() {
+    audioInit(); audioResume();
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('loading-screen').classList.remove('hidden');
-    gameState = { running: false, paused: false, time: 0, dayTime: 0, startTime: Date.now(), difficulty: 1, itemsCollected: 0, totalItems: 0, generatorFixed: false, alarmCut: false, doorsOpened: [], playerDead: false, hasWon: false };
+
+    resetState();
+
+    const loadFill = document.getElementById('loading-fill');
+    const loadText = document.getElementById('loading-text');
+
+    loadFill.style.width = '20%';
+    loadText.textContent = 'Initialisation...';
 
     setTimeout(() => {
-        document.getElementById('loading-fill').style.width = '30%';
-        document.getElementById('loading-text').textContent = 'Construction de la maison...';
-    }, 100);
+        engineInit();
+        loadFill.style.width = '50%';
+        loadText.textContent = 'Construction de la maison...';
+    }, 200);
 
     setTimeout(() => {
-        initEngine();
-        document.getElementById('loading-fill').style.width = '60%';
-        document.getElementById('loading-text').textContent = 'Placement des objets...';
-    }, 400);
-
-    setTimeout(() => {
-        colliders = []; interactables = []; itemObjects = []; doorObjects = []; hidingSpots = [];
         buildHouse();
+        loadFill.style.width = '70%';
+        loadText.textContent = 'Placement des objets...';
+    }, 500);
+
+    setTimeout(() => {
         spawnItems();
         createEnemy();
         initPlayer();
-        document.getElementById('loading-fill').style.width = '100%';
-        document.getElementById('loading-text').textContent = 'Pret.';
+        loadFill.style.width = '100%';
+        loadText.textContent = 'Pret.';
     }, 800);
 
     setTimeout(() => {
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('hud').classList.remove('hidden');
-        document.getElementById('forest-anger')?.classList.add('hidden');
-        gameState.running = true;
-        audio.ambientLoop();
+        gameRunning = true;
+        updateInvUI();
+        SFX.ambient();
         requestAnimationFrame(gameLoop);
-        // Lock pointer
         document.getElementById('gameCanvas').requestPointerLock();
-    }, 1200);
+    }, 1100);
 }
 
 function continueGame() {
-    audio.init();
-    audio.resume();
+    audioInit(); audioResume();
     document.getElementById('main-menu').classList.add('hidden');
-    initEngine();
-    colliders = []; interactables = []; itemObjects = []; doorObjects = []; hidingSpots = [];
+    resetState();
+    engineInit();
     buildHouse();
     spawnItems();
     createEnemy();
     initPlayer();
-    loadGame();
-    updateInventoryUI();
+    loadSave();
+    updateInvUI();
     document.getElementById('hud').classList.remove('hidden');
-    document.getElementById('forest-anger')?.classList.add('hidden');
-    gameState.running = true;
-    gameState.paused = false;
-    audio.ambientLoop();
+    gameRunning = true;
+    SFX.ambient();
     notify('Partie chargee', 'info');
     requestAnimationFrame(gameLoop);
     document.getElementById('gameCanvas').requestPointerLock();
 }
 
 function pauseGame() {
-    if (!gameState.running || gameState.hasWon || gameState.playerDead) return;
-    gameState.paused = true;
+    if (!gameRunning || hasWon || playerDead) return;
+    gamePaused = true;
     document.getElementById('pause-menu').classList.remove('hidden');
     document.exitPointerLock();
 }
 
 function resumeGame() {
-    gameState.paused = false;
+    gamePaused = false;
     document.getElementById('pause-menu').classList.add('hidden');
-    hideSubmenu('options-menu');
+    document.getElementById('options-menu').classList.add('hidden');
     document.getElementById('gameCanvas').requestPointerLock();
 }
 
-function togglePause() {
-    if (gameState.paused) resumeGame();
-    else pauseGame();
-}
+function togglePause() { gamePaused ? resumeGame() : pauseGame(); }
 
 function gameOver(reason) {
-    gameState.running = false;
-    gameState.playerDead = true;
+    gameRunning = false;
+    playerDead = true;
     document.getElementById('death-screen').classList.remove('hidden');
     document.getElementById('death-cause').textContent = reason;
-    const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
-    document.getElementById('death-time').textContent = `Temps: ${Math.floor(elapsed/60)}m ${elapsed%60}s | Objets: ${gameState.itemsCollected}/${gameState.totalItems}`;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('death-time').textContent =
+        `Temps: ${Math.floor(elapsed/60)}m${elapsed%60}s | Objets: ${itemsFound}/${totalItems}`;
     document.exitPointerLock();
 }
 
 function winGame() {
-    gameState.running = false;
-    gameState.hasWon = true;
+    gameRunning = false;
+    hasWon = true;
     document.getElementById('win-screen').classList.remove('hidden');
-    const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
-    document.getElementById('win-time').textContent = `Temps: ${Math.floor(elapsed/60)}m ${elapsed%60}s`;
-    document.getElementById('win-stats').textContent = `Objets trouves: ${gameState.itemsCollected}/${gameState.totalItems}`;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('win-time').textContent = `Temps: ${Math.floor(elapsed/60)}m${elapsed%60}s`;
+    document.getElementById('win-stats').textContent = `Objets: ${itemsFound}/${totalItems}`;
     document.exitPointerLock();
 }
 
-function retryGame() {
-    document.getElementById('death-screen').classList.add('hidden');
-    startNewGame();
-}
-
-function quitToMenu() {
-    gameState.running = false;
-    gameState.paused = false;
-    document.getElementById('death-screen').classList.add('hidden');
-    document.getElementById('win-screen').classList.add('hidden');
-    document.getElementById('pause-menu').classList.add('hidden');
-    document.getElementById('hud').classList.add('hidden');
-    hideSubmenu('options-menu');
+function quitMenu() {
+    gameRunning = false;
+    document.querySelectorAll('.submenu, #pause-menu, #death-screen, #win-screen, #hud')
+        .forEach(el => el.classList.add('hidden'));
     document.getElementById('main-menu').classList.remove('hidden');
-    if (hasSaveGame()) document.getElementById('btn-continue').style.display = '';
+    if (localStorage.getItem('fh_save')) document.getElementById('btn-continue').style.display = '';
     document.exitPointerLock();
-    // Clean scene
-    if (scene) {
-        while(scene.children.length > 0) scene.remove(scene.children[0]);
-    }
+    if (scene) { while (scene.children.length) scene.remove(scene.children[0]); }
+}
+
+function saveGame() {
+    const save = {
+        pos: { x: playerPos.x, y: playerPos.y, z: playerPos.z },
+        health: playerHealth,
+        inv: [...playerInv],
+        gen: generatorFixed,
+        alarm: alarmCut,
+        collected: itemObjects.filter(i => i.collected).map(i => i.id),
+    };
+    localStorage.setItem('fh_save', JSON.stringify(save));
+}
+
+function loadSave() {
+    const raw = localStorage.getItem('fh_save');
+    if (!raw) return;
+    try {
+        const s = JSON.parse(raw);
+        playerPos.set(s.pos.x, s.pos.y, s.pos.z);
+        playerHealth = s.health;
+        playerInv.length = 0;
+        s.inv.forEach(i => playerInv.push(i));
+        generatorFixed = s.gen;
+        alarmCut = s.alarm;
+        s.collected.forEach(id => {
+            const item = itemObjects.find(i => i.id === id && !i.collected);
+            if (item) { item.collected = true; scene.remove(item.group); }
+        });
+    } catch(e) { console.warn('Save corrupted'); }
 }
 
 // ============================================
-// SECTION 17: GAME LOOP
+// 17. GAME LOOP
 // ============================================
-let lastChaseMusicTime = 0;
-
-function gameLoop(timestamp) {
-    if (!gameState.running) return;
+function gameLoop() {
+    if (!gameRunning) return;
     requestAnimationFrame(gameLoop);
 
     const dt = Math.min(clock.getDelta(), 0.05);
-    if (gameState.paused) {
-        renderer.render(scene, camera);
-        return;
-    }
+    if (gamePaused) { renderer.render(scene, camera); return; }
 
     gameTime += dt;
 
-    // Update systems
-    updatePlayerMovement(dt);
+    updateMovement(dt);
     updateEnemy(dt);
     updateItemGlow(dt);
     updateHUD();
 
-    // Check front door escape
-    const distToDoor = player.position.distanceTo(new THREE.Vector3(8, player.position.y, 0));
-    if (distToDoor < 2 && !player.hiding) {
-        if (attemptEscape()) return;
-        else if (player.inventory.includes('final_key') && (!gameState.generatorFixed || !gameState.alarmCut)) {
-            // Handled by HUD hint
-        }
+    // Front door check
+    if (playerPos.distanceTo(new THREE.Vector3(0, playerPos.y, 5)) < 2) {
+        attemptEscape();
     }
 
-    // Auto-save every 30s
-    if (Math.floor(gameTime) % 30 === 0 && Math.floor(gameTime) > 0 && Math.floor(gameTime * 10) % 10 === 0) {
-        saveGame();
-    }
+    // Auto-save
+    if (Math.floor(gameTime) > 0 && Math.floor(gameTime) % 30 === 0) saveGame();
 
-    // Heartbeat when enemy is close
-    if (enemy.distanceToPlayer && enemy.distanceToPlayer < 10 && enemy.state === ENEMY_STATES.CHASE) {
-        if (Math.floor(gameTime * 2) % 2 === 0) audio.heartbeat(120);
+    // Heartbeat
+    if (enemy.distToPlayer < 10 && enemy.state === EST.CHASE) {
+        if (Math.floor(gameTime * 2) % 2 === 0) SFX.heartbeat();
     }
 
     renderer.render(scene, camera);
 }
 
-function updateItemGlow(dt) {
-    itemObjects.forEach(item => {
-        if (!item.collected && item.mesh) {
-            item.mesh.rotation.y += dt * 2;
-            item.mesh.position.y = item.mesh.position.y + Math.sin(gameTime * 3 + item.mesh.position.x) * 0.001;
-        }
-    });
-}
-
 // ============================================
-// SECTION 18: INIT
+// 18. INIT
 // ============================================
-window.onload = () => {
-    initMenus();
-    initControls();
-};
+window.onload = () => { initMenus(); initControls(); };
