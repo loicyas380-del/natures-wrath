@@ -1200,7 +1200,14 @@ function initControls() {
     });
 
     addEventListener('mousedown', e => {
-        if (gameRunning && !gamePaused && ptrLocked && e.button === 0) onInteract();
+        if (!gameRunning || gamePaused) return;
+        if (ptrLocked && e.button === 0) { onInteract(); return; }
+        if (!ptrLocked) {
+            document.getElementById('gameCanvas').requestPointerLock();
+        }
+    });
+
+    document.getElementById('gameCanvas').addEventListener('click', () => {
         if (gameRunning && !gamePaused && !ptrLocked) {
             document.getElementById('gameCanvas').requestPointerLock();
         }
@@ -1208,7 +1215,9 @@ function initControls() {
 
     addEventListener('pointerlockchange', () => {
         ptrLocked = !!document.pointerLockElement;
-        if (!ptrLocked && gameRunning && !gamePaused && !playerDead && !hasWon) {
+        if (ptrLocked) {
+            hideClickToPlay();
+        } else if (gameRunning && !gamePaused && !playerDead && !hasWon) {
             showClickToPlay();
         }
     });
