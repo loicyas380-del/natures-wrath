@@ -879,7 +879,7 @@ let footstepCD = 0;
 let selectedSlot = 0;
 
 function initPlayer() {
-    playerPos.set(0, CFG.CAM_H, 4);
+    playerPos.set(0, CFG.CAM_H, 0);
     playerVel.set(0, 0, 0);
     playerRotX = 0; playerRotY = 0;
     playerStamina = 100;
@@ -1204,8 +1204,19 @@ function initControls() {
 
     addEventListener('pointerlockchange', () => {
         ptrLocked = !!document.pointerLockElement;
-        if (!ptrLocked && gameRunning && !gamePaused) pauseGame();
+        if (!ptrLocked && gameRunning && !gamePaused) {
+            showClickToPlay();
+        }
     });
+}
+
+function showClickToPlay() {
+    const overlay = document.getElementById('click-to-play');
+    overlay.classList.remove('hidden');
+    overlay.onclick = () => {
+        document.getElementById('gameCanvas').requestPointerLock();
+        overlay.classList.add('hidden');
+    };
 }
 
 function onKey(e) {
@@ -1571,7 +1582,7 @@ function newGame() {
         updateInvUI();
         SFX.ambient();
         requestAnimationFrame(gameLoop);
-        document.getElementById('gameCanvas').requestPointerLock();
+        showClickToPlay();
     }, 1100);
 }
 
@@ -1591,7 +1602,7 @@ function continueGame() {
     SFX.ambient();
     notify('Partie chargee', 'info');
     requestAnimationFrame(gameLoop);
-    document.getElementById('gameCanvas').requestPointerLock();
+    showClickToPlay();
 }
 
 function pauseGame() {
@@ -1605,7 +1616,7 @@ function resumeGame() {
     gamePaused = false;
     document.getElementById('pause-menu').classList.add('hidden');
     document.getElementById('options-menu').classList.add('hidden');
-    document.getElementById('gameCanvas').requestPointerLock();
+    showClickToPlay();
 }
 
 function togglePause() { gamePaused ? resumeGame() : pauseGame(); }
@@ -1689,7 +1700,8 @@ function gameLoop() {
     updateHUD();
 
     // Front door check
-    if (playerPos.distanceTo(new THREE.Vector3(0, playerPos.y, 5)) < 2) {
+    if (playerPos.distanceTo(new THREE.Vector3(0, playerPos.y, 5)) < 2 && gameTime - lastEscapeAttempt > 3) {
+        lastEscapeAttempt = gameTime;
         attemptEscape();
     }
 
